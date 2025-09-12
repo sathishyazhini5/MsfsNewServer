@@ -1,0 +1,297 @@
+openapi: 3.0.0
+info:
+  title: Quick Code API
+  version: 1.0.0
+  description: A simple Express Library API
+servers:
+  - url: http://localhost:3000/api
+paths:
+  /quickcodes:
+    post:
+      summary: Create a new quick code
+      tags:
+        - QuickCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quick_code_type:
+                  type: string
+                  description: The type of quick code
+                language_code:
+                  type: string
+                  description: The language code
+                quickcode_name:
+                  type: string
+                  description: The name of the quick code
+                created_by:
+                  type: string
+                  description: The creator
+              required:
+                - quick_code_type
+                - language_code
+                - quickcode_name
+                - created_by
+      responses:
+        200:
+          description: The quick code was successfully created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuickCode'
+        400:
+          description: Invalid quickcode_name for the provided quick_code_type
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Invalid quickcode_name for the provided quick_code_type
+        500:
+          description: Some server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Failed to create quick code
+  /getoverallbyquickcodename:
+    get:
+      summary: Retrieve quick codes by type
+      tags:
+        - QuickCode
+      parameters:
+        - in: query
+          name: quick_code_type
+          schema:
+            type: string
+          description: The type of quick code to filter by
+      responses:
+        200:
+          description: A list of quick codes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/QuickCode'
+        400:
+          description: Invalid quick_code_type
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: quick_code_type must be deptyp
+        500:
+          description: Some server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Failed to retrieve quick codes
+  /updatequickcode:
+    put:
+      summary: Update an existing quick code
+      tags:
+        - QuickCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quick_code:
+                  type: string
+                  description: The quick code of the entry to update
+                quick_code_type:
+                  type: string
+                  description: The type of quick code
+                quickcode_name:
+                  type: string
+                  description: The name of the quick code
+                updated_by:
+                  type: string
+                  description: The updater
+              required:
+                - quick_code
+                - quick_code_type
+                - quickcode_name
+                - updated_by
+      responses:
+        200:
+          description: The quick code was successfully updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuickCode'
+        400:
+          description: Invalid quick_code_type or quickcode_name
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Invalid quick_code_type or quickcode_name
+        404:
+          description: Quick code entry not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Quick code entry not found
+        500:
+          description: Some server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Failed to update quick code
+  /deletequickcode:
+    delete:
+      summary: Delete an existing quick code
+      tags:
+        - QuickCode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quick_code_type:
+                  type: string
+                  description: The type of quick code
+                quick_code:
+                  type: string
+                  description: The quick code of the entry to delete
+              required:
+                - quick_code_type
+                - quick_code
+      responses:
+        200:
+          description: The quick code was successfully deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Quick code entry deleted successfully
+        404:
+          description: Quick code entry not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Quick code entry not found
+        500:
+          description: Some server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Failed to delete quick code
+  /getallquickcodetype:
+    get:
+      summary: Retrieve all meta code names
+      tags:
+        - MetaCode
+      responses:
+        200:
+          description: A list of meta codes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MetaCode'
+        500:
+          description: Some server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Failed to retrieve meta codes
+components:
+  schemas:
+    QuickCode:
+      type: object
+      properties:
+        quick_code_type:
+          type: string
+          description: The type of quick code
+        quick_code:
+          type: string
+          description: The quick code
+        language_code:
+          type: string
+          description: The language code
+        quickcode_name:
+          type: string
+          description: The name of the quick code
+        concurrency_val:
+          type: integer
+          description: The concurrency value
+        created_by:
+          type: string
+          description: The creator
+        created_date:
+          type: string
+          format: date-time
+          description: The creation date
+        updated_by:
+          type: string
+          description: The updater
+        updated_date:
+          type: string
+          format: date-time
+          description: The update date
+      required:
+        - quick_code_type
+        - quick_code
+        - language_code
+        - quickcode_name
+        - concurrency_val
+        - created_by
+        - created_date
+    MetaCode:
+      type: object
+      properties:
+        meta_code_name:
+          type: string
+          description: The name of the meta code
+schemes:
+ - https
+ - http

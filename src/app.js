@@ -1,0 +1,120 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
+import express from 'express';
+import morgan from 'morgan';
+import compression from 'compression';
+import cookieParser from 'cookie-parser';
+import cors from 'cors';
+import helmet from 'helmet';
+import hpp from 'hpp';
+import swaggerJSDoc from 'swagger-jsdoc';
+import swaggerUi from 'swagger-ui-express';
+import cron from 'node-cron'; // Added for scheduled tasks
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { LOG_FORMAT, NODE_ENV, PORT } from './config/index.js';
+import { logger, stream } from './utils/logger.js';
+import { indexRouter } from './routes/index.js';
+import { sendTodayAnniversaries } from './controllers/Msfs/anniversarynotification.js'
+import './middlewares/anniversaryJob.js'
+
+const app = express();
+
+const __filename = fileURLToPath(import.meta.url);
+const _dirname = path.dirname(__filename);
+
+// ✅ Serve static logo image
+app.use('/assets', express.static(path.join(_dirname, 'middlewares/MSFSLOGO')));
+
+
+// Serve static files from the "uploads" directory
+app.use('/uploads', express.static('uploads'));
+
+// Middleware setup
+app.use(morgan(LOG_FORMAT || 'combined', { stream }));
+
+
+// Updated CORS settings
+app.use(cors({
+  origin: ['http://localhost:3000'], // Specify allowed origins
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Add 'OPTIONS' for preflight requests
+  credentials: true, // Allow cookies from the client
+  allowedHeaders: ['Content-Type', 'Authorization'], // Ensure 'Authorization' is allowed
+}));
+
+app.use(hpp());
+app.use(helmet());
+app.use(compression());
+app.use(express.json({ limit: '10mb' })); // Increase the payload limit to 10MB
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser());
+
+// Health check route
+app.get('/healthcheck', (req, res) => {
+  res.status(200).send('Server is online and healthy');
+});
+
+// Load routers with token verification middleware
+const rootPath = '/api';
+app.use(rootPath, indexRouter);
+
+// Swagger setup
+const swaggerOptions = {
+  swaggerDefinition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'REST API',
+      version: '1.0.0',
+      description: 'API Documentation',
+    },
+    servers: [
+      {
+        url: `http://localhost:${PORT}/api`, // Adjust based on your environment
+      },
+    ],
+  },
+  apis: ['./swagger.yaml'], // Ensure the path is correct for your swagger file
+};
+const swaggerSpecs = swaggerJSDoc(swaggerOptions);
+
+// Uncomment this if you wish to expose Swagger documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
+
+// Add cron job for daily anniversary emails
+cron.schedule('0 0 * * *', async () => {
+  logger.info('Running daily anniversary email job...');
+  try {
+    await sendTodayAnniversaries();
+    logger.info('Daily anniversary email job completed successfully.');
+  } catch (error) {
+    logger.error('Error during daily anniversary email job:', error.message);
+  }
+});
+
+// 404 Error handling for undefined routes
+app.use((req, res, next) => {
+  res.status(404).json({ message: 'Resource not found' });
+});
+
+// Centralized error handling middleware
+app.use((err, req, res, next) => {
+  logger.error(`Express Error: ${err.message}`, { stack: err.stack });
+  res.status(err.status || 500).json({ message: err.message || 'Internal Server Error' });
+});
+
+// Global error handlers for unhandled rejections and uncaught exceptions
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection:', { reason, promise });
+});
+
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught Exception:', { error: err });
+});
+
+// Start server
+app.listen(PORT, () => {
+  logger.info(`🚀 Server is running on http://localhost:${PORT}`);
+});
+
+export default app;

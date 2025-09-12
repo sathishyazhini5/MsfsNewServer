@@ -1,0 +1,34 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# env files
+.env
+.env.local
+.env.*.local
+
+# build / output
+/dist
+/build
+
+# logs and error folders
+logs/
+debug/
+error/
+*.log
+
+# uploads
+uploads/
+
+# coverage (if using Jest/Mocha)
+coverage/
+
+# misc
+.DS_Store
+.idea/
+.vscode/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

@@ -1,0 +1,21 @@
+screen_code,meta_code,screen_name,meta_code_name,auto_codeflag
+qckcode,bldgrp,Quick Code Setup,Blood Group,1
+qckcode,natlty,Quick Code Setup,Nationality,1
+qckcode,deptyp,Quick Code Setup,Departure Type,1
+qckcode,schtyp,Quick Code Setup,Scholastics Type,1
+qckcode,destyp,Quick Code Setup,Designation Type,1
+qckcode,lancod,Quick Code Setup,Language Defination,1
+qckcode,apostl,Quick Code Setup,Apostolate,1
+qckcode,ctrtyp,Quick Code Setup,Centre Type,1
+qckcode,divtyp,Quick Code Setup,Division type,1
+qckcode,usrtyp,Quick Code Setup,User Type,1
+qckcode,memtyp,Quick Code Setup,Member Type,1
+qckcode,pcicof,Quick Code Setup,PCIC Off tyoe ,1
+qckcode,mandat,Quick Code Setup,Mandate Type ,1
+qckcode,fortyp,Quick Code Setup,Formation Type,1
+qckcode,promto,Quick Code Setup,Promotion To,1
+qckcode,yrform,Quick Code Setup,Year of Formation,1
+qckcode,anityp,Quick Code Setup,Anniversary Type,1
+qckcode,datfmt,Quick Code Setup,Date Format,1
+qckcode,diocse,Quick Code Setup,Diocese ,1
+,,,,
