@@ -20,7 +20,9 @@ const normalizeProvinceShortName = (value) => {
 };
 
 export const getOrdinationYear = (value) => {
-  if (!value) throw new ConfrereCreationError('Ordination date is required to generate Confrere ID.');
+  // Ordination date is optional. Use the creation year only for ID generation
+  // when it is not supplied; the stored ordination date remains null.
+  if (!value) return new Date().getUTCFullYear();
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) {
     throw new ConfrereCreationError('A valid ordination date is required to generate Confrere ID.');

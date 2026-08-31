@@ -16,36 +16,37 @@ import {
 const maxLength = (str, len) => (str && str.length > len ? str.substring(0, len) : str);
 
 async function fetchCodeByNameOrCode(nameOrCode, type) {
+  const normalizedNameOrCode = String(nameOrCode || '').trim();
   let whereCondition = {};
 
   switch (type) {
     case 'province':
       whereCondition = {
         OR: [
-          { province_name: { equals: nameOrCode, mode: 'insensitive' } },
-          { province_code: nameOrCode }
+          { province_name: { equals: normalizedNameOrCode, mode: 'insensitive' } },
+          { province_code: normalizedNameOrCode }
         ],
       };
       break;
     case 'memberType':
       whereCondition = {
         OR: [
-          { quickcode_name: nameOrCode, quick_code_type: 'memtyp' },
-          { quick_code: nameOrCode }
+          { quickcode_name: { equals: normalizedNameOrCode, mode: 'insensitive' }, quick_code_type: 'memtyp' },
+          { quick_code: { equals: normalizedNameOrCode, mode: 'insensitive' } }
         ],
       };
       break;
     case 'bloodGroup':
       whereCondition = {
-        bloodgroup: { equals: nameOrCode, mode: 'insensitive' }
+        bloodgroup: { equals: normalizedNameOrCode, mode: 'insensitive' }
       };
       break;
 
     case 'nationality':
       whereCondition = {
         OR: [
-          { quickcode_name: nameOrCode, quick_code_type: 'natlty' },
-          { quick_code: nameOrCode }
+          { quickcode_name: { equals: normalizedNameOrCode, mode: 'insensitive' }, quick_code_type: 'natlty' },
+          { quick_code: { equals: normalizedNameOrCode, mode: 'insensitive' } }
         ],
       };
       break;
@@ -58,10 +59,10 @@ async function fetchCodeByNameOrCode(nameOrCode, type) {
   });
 
   if (!result) {
-    throw new Error(`${type} name or code ${nameOrCode} not found`);
+    throw new Error(`${type} name or code ${normalizedNameOrCode} not found`);
   }
 
-  return type === 'province' ? { province_code: result.province_code, country_code: result.country_code } : (type === 'bloodGroup' ? result.BloodGroup : result.quick_code);
+  return type === 'province' ? { province_code: result.province_code, country_code: result.country_code, short_name: result.short_name } : (type === 'bloodGroup' ? result.code : result.quick_code);
 }
 
 
@@ -278,44 +279,24 @@ export const saveConfrere = async (req, res) => {
       emergencyIsd, emergencyContact, email
     } = req.body;
 
-    const requiredFields = [
-      { field: "memberType", message: "Member type is required" },
-      { field: "firstName", message: "First Name is required" },
-      { field: "lastName", message: "Last Name is required" },
-      { field: "dob", message: "Birth date is required" },
-      { field: "firstProfessionDate", message: "First Profession date is required" },
-      { field: "finalProfessionDate", message: "Final Profession date is required" },
-      { field: "ordinationDate", message: "Ordination date is required" },
-      { field: "personal1", message: "Personal Contact1 is required" },
-      { field: "personal1Isd", message: "Personal isd 1 is required" },
-      { field: "email", message: "Email is required" },
-      { field: "nationality", message: "Nationality is required" },
-    ];
-
-    const missingFields = requiredFields
-      .filter(({ field }) => !req.body[field] || req.body[field].trim() === "")
-      .map(({ message }) => message);
-
-    if (missingFields.length > 0) {
-      return res.status(400).json({ error: `Missing fields: ${missingFields.join(", ")}` });
-    }
-
-    const lowercaseEmail = email.trim().toLowerCase();
+    const normalizedEmail = String(email || '').trim().toLowerCase() || null;
 
     const province = await resolveAuthorizedProvince({
       prisma,
       user: decoded,
       requestedProvince: req.body.province_code || req.body.province || req.body.provinceName,
     });
-    const member_type_code = await fetchCodeByNameOrCode(memberType, 'memberType');
+    const member_type_code = memberType ? await fetchCodeByNameOrCode(memberType, 'memberType') : null;
     const blood_group_code = bloodGroup ? await fetchCodeByNameOrCode(bloodGroup, "bloodGroup") : null;
-    const nationality_code = await fetchCodeByNameOrCode(nationality, 'nationality');
+    const nationality_code = nationality ? await fetchCodeByNameOrCode(nationality, 'nationality') : null;
 
-    const existingConfrere = await prisma.confreres_dtl.findFirst({
-      where: { personal_mailid1: lowercaseEmail },
-    });
-    if (existingConfrere) {
-      return res.status(400).json({ error: 'Email ID already exists' });
+    if (normalizedEmail) {
+      const existingConfrere = await prisma.confreres_dtl.findFirst({
+        where: { personal_mailid1: { equals: normalizedEmail, mode: 'insensitive' } },
+      });
+      if (existingConfrere) {
+        return res.status(400).json({ error: 'Email ID already exists' });
+      }
     }
 
     // ✅ Azure Blob Upload for Image
@@ -354,7 +335,7 @@ export const saveConfrere = async (req, res) => {
       watsup3_no: whatsapp3 ? BigInt(whatsapp3) : null,
       emergency_isd: maxLength(emergencyIsd || '', 5),
       emergency_contact_no: emergencyContact ? BigInt(emergencyContact) : null,
-      personal_mailid1: maxLength(email, 255),
+      personal_mailid1: maxLength(normalizedEmail, 255),
       blood_group_code: bloodGroup,
       nationality_code: maxLength(nationality_code, 10),
       language_code: maxLength('en', 2),
@@ -1382,21 +1363,29 @@ export const saveConfrereByExcel = async (req, res) => {
     // Read the Excel file
 
     const workbook = xlsx.read(buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    if (!sheet) return res.status(400).json({ error: 'Excel sheet is empty or corrupted.' });
-    
-    let rows;
+    let rows = [];
+    let selectedSheetName;
     try {
-      rows = xlsx.utils.sheet_to_json(sheet);
+      for (const sheetName of workbook.SheetNames) {
+        const candidateRows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null });
+        if (candidateRows.length > 0) {
+          rows = candidateRows;
+          selectedSheetName = sheetName;
+          break;
+        }
+      }
     } catch (jsonError) {
-      console.error('Error converting sheet to JSON:', jsonError);
+      console.error('Error converting Excel sheet to JSON:', jsonError);
       return res.status(400).json({ error: 'Failed to convert Excel sheet to JSON format.' });
     }
 
     if (!rows || rows.length === 0) {
-      return res.status(400).json({ error: 'No data found in the Excel file.' });
+      return res.status(400).json({
+        error: 'No data rows found in the Excel file. Please check that the first row contains column headers and the sheet contains records.',
+      });
     }
+
+    console.log(`Processing ${rows.length} rows from Excel sheet: ${selectedSheetName}`);
 
     const successRecords = [];
     const failedRecords = [];
@@ -1406,25 +1395,47 @@ export const saveConfrereByExcel = async (req, res) => {
 
       // Check if the value is an Excel serial date (number)
       if (typeof dateStr === 'number') {
-        return new Date((dateStr - 25569) * 86400 * 1000); // Convert serial date to JS date
+        const excelDate = new Date((dateStr - 25569) * 86400 * 1000);
+        return isNaN(excelDate.getTime()) ? null : excelDate; // Convert serial date to JS date
       }
 
       // Check for formats like DD-MM-YYYY or DD/MM/YYYY
       const datePattern = /^(\d{2})[-/](\d{2})[-/](\d{4})$/;
-      const match = dateStr.match(datePattern);
+      const normalizedDate = String(dateStr).trim();
+      const match = normalizedDate.match(datePattern);
 
       if (match) {
         const [, day, month, year] = match;
-        return new Date(`${year}-${month}-${day}`); // Convert to YYYY-MM-DD for JS Date
+        const parsedDate = new Date(`${year}-${month}-${day}`); // Convert to YYYY-MM-DD for JS Date
+        return isNaN(parsedDate.getTime()) ? null : parsedDate;
       }
 
       // For any other format, try the default Date constructor
-      const parsedDate = new Date(dateStr);
+      const parsedDate = new Date(normalizedDate);
       if (isNaN(parsedDate.getTime())) {
-        throw new Error(`Invalid date format: ${dateStr}`);
+        return null;
       }
 
       return parsedDate;
+    };
+
+    const safeBigInt = (value) => {
+      if (value === null || value === undefined || String(value).trim() === '') return null;
+      try {
+        return BigInt(String(value).trim());
+      } catch {
+        return null;
+      }
+    };
+
+    const safeLookup = async (value, type) => {
+      if (value === null || value === undefined || String(value).trim() === '') return null;
+      try {
+        return await fetchCodeByNameOrCode(value, type);
+      } catch (error) {
+        console.warn(`Ignoring invalid ${type} value: ${value}`);
+        return null;
+      }
     };
 
     // Process each row
@@ -1432,30 +1443,15 @@ export const saveConfrereByExcel = async (req, res) => {
       try {
         // Extract and convert fields
         const personal2Isd = row['Personal2 ISD'] ? String(row['Personal2 ISD']) : null;
-        const personal2 = row['Personal2 Contact'] ? BigInt(row['Personal2 Contact']) : null;
+        const personal2 = safeBigInt(row['Personal2 Contact']);
         const personal3Isd = row['Personal3 ISD'] ? String(row['Personal3 ISD']) : null;
-        const personal3 = row['Personal3 Contact'] ? BigInt(row['Personal3 Contact']) : null;
+        const personal3 = safeBigInt(row['Personal3 Contact']);
         const whatsapp2Isd = row['WhatsApp2 ISD'] ? String(row['WhatsApp2 ISD']) : null;
-        const whatsapp2 = row['WhatsApp2'] ? BigInt(row['WhatsApp2']) : null;
+        const whatsapp2 = safeBigInt(row['WhatsApp2']);
         const whatsapp3Isd = row['WhatsApp3 ISD'] ? String(row['WhatsApp3 ISD']) : null;
-        const whatsapp3 = row['WhatsApp3'] ? BigInt(row['WhatsApp3']) : null;
+        const whatsapp3 = safeBigInt(row['WhatsApp3']);
         const emergencyIsd = row['Emergency ISD'] ? String(row['Emergency ISD']) : null;
-        const emergencyContact = row['Emergency Contact'] ? BigInt(row['Emergency Contact']) : null;
-
-        const requiredExcelFields = [
-          'Member Type', 'First Name', 'Last Name', 'Date of Birth',
-          'First Profession Date', 'Final Profession Date', 'Ordination Date',
-          'Personal1 ISD', 'Personal1 Contact', 'Email', 'Nationality',
-        ];
-        const missingExcelFields = requiredExcelFields.filter((field) => {
-          const value = row[field];
-          return value === undefined || value === null || String(value).trim() === '';
-        });
-        if (missingExcelFields.length > 0) {
-          failedRecords.push({ row, error: `Missing required fields: ${missingExcelFields.join(', ')}` });
-          continue; // Skip row
-        }
-
+        const emergencyContact = safeBigInt(row['Emergency Contact']);
 
         const ordinationDate = parseDate(row['Ordination Date']);
         const province = await resolveAuthorizedProvince({
@@ -1463,24 +1459,24 @@ export const saveConfrereByExcel = async (req, res) => {
           user: decoded,
           requestedProvince: row['Province'] || req.body.province_code || req.body.province,
         });
-        const member_type_code = await fetchCodeByNameOrCode(row['Member Type'], 'memberType');
+        const member_type_code = await safeLookup(row['Member Type'], 'memberType');
         const bloodGroup = row['Blood Group']; // Extract blood group from row
-        const blood_group_code = bloodGroup
-          ? await fetchCodeByNameOrCode(bloodGroup, "bloodGroup")
-          : null;
+        const blood_group_code = await safeLookup(bloodGroup, 'bloodGroup');
         console.log("Blood Group Code:", blood_group_code);
 
-        const nationality_code = row['Nationality'] ? await fetchCodeByNameOrCode(row['Nationality'], 'nationality') : null;
+        const nationality_code = await safeLookup(row['Nationality'], 'nationality');
 
         // Check for existing confrere
-        const existingConfrere = await prisma.confreres_dtl.findFirst({
-          where: { personal_mailid1: row['Email'] },
-        });
-
-        if (existingConfrere) {
-          console.warn(`Confrere with email ${row['Email']} already exists.`);
-          failedRecords.push({ row, error: 'Confrere with this email already exists' });
-          continue; // Skip row
+        const normalizedEmail = String(row['Email'] || '').trim().toLowerCase() || null;
+        if (normalizedEmail) {
+          const existingConfrere = await prisma.confreres_dtl.findFirst({
+            where: { personal_mailid1: { equals: normalizedEmail, mode: 'insensitive' } },
+          });
+          if (existingConfrere) {
+            console.warn(`Confrere with email ${normalizedEmail} already exists.`);
+            failedRecords.push({ row, error: 'Confrere with this email already exists' });
+            continue; // Skip row
+          }
         }
 
         // Prepare data for Prisma create, ensuring correct data types
@@ -1489,28 +1485,28 @@ export const saveConfrereByExcel = async (req, res) => {
           first_name: maxLength(row['First Name'] || '', 50),
           middle_name: maxLength(row['Middle Name'] || '', 50) || null,
           last_name: maxLength(row['Last Name'] || '', 50),
-          birth_date: row['Date of Birth'] ? parseDate(row['Date of Birth']) : null,
-          baptism_date: row['Baptism Date'] ? parseDate(row['Baptism Date']) : null,
-          confirmation_date: row['Confirmation Date'] ? parseDate(row['Confirmation Date']) : null,
-          first_profession_date: row['First Profession Date'] ? parseDate(row['First Profession Date']) : null,
-          final_profession_date: row['Final Profession Date'] ? parseDate(row['Final Profession Date']) : null,
+          birth_date: parseDate(row['Date of Birth']),
+          baptism_date: parseDate(row['Baptism Date']),
+          confirmation_date: parseDate(row['Confirmation Date']),
+          first_profession_date: parseDate(row['First Profession Date']),
+          final_profession_date: parseDate(row['Final Profession Date']),
           ordination_date: ordinationDate,
-          personal_mailid1: maxLength(row['Email'], 255),
+          personal_mailid1: maxLength(normalizedEmail, 255),
           personal1_isd: row['Personal1 ISD'] ? String(row['Personal1 ISD']) : null,
-          personal1_contact_no: row['Personal1 Contact'] ? BigInt(row['Personal1 Contact']) : null,
+          personal1_contact_no: safeBigInt(row['Personal1 Contact']),
           personal2_isd: maxLength(personal2Isd || '', 5),
           personal2_contact_no: personal2,
           personal3_isd: maxLength(personal3Isd || '', 5),
           personal3_contact_no: personal3,
           watsup1_isd: row['WhatsApp1 ISD'] ? String(row['WhatsApp1 ISD']) : null,
-          watsup1_no: row['WhatsApp1'] ? BigInt(row['WhatsApp1']) : null,
+          watsup1_no: safeBigInt(row['WhatsApp1']),
           watsup2_isd: maxLength(whatsapp2Isd || '', 5),
           watsup2_no: whatsapp2,
           watsup3_isd: maxLength(whatsapp3Isd || '', 5),
           watsup3_no: whatsapp3,
           emergency_isd: maxLength(emergencyIsd || '', 5),
           emergency_contact_no: emergencyContact,
-          blood_group_code: bloodGroup,
+          blood_group_code: blood_group_code ? maxLength(blood_group_code, 10) : null,
           nationality_code: nationality_code ? maxLength(nationality_code, 10) : null,
           language_code: maxLength(row['Language Code'] || '', 2),
           concurrency_val: 1,

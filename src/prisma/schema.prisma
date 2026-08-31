@@ -300,16 +300,16 @@ model confreres_dtl {
   confrer_code          String    @db.VarChar(15) // PK
   province_code         String    @db.VarChar(10) // PK
   member_type_code      String?   @db.VarChar(10)
-  first_name            String    @db.VarChar(50)
+  first_name            String?   @db.VarChar(50)
   middle_name           String?   @db.VarChar(50)
-  last_name             String    @db.VarChar(50)
+  last_name             String?   @db.VarChar(50)
   image_file_name       String?   @db.VarChar(100)
   image_file_path       String?   @db.Text
-  birth_date            DateTime
+  birth_date            DateTime?
   baptism_date          DateTime?
   confirmation_date     DateTime?
-  first_profession_date DateTime
-  final_profession_date DateTime
+  first_profession_date DateTime?
+  final_profession_date DateTime?
   ordination_date       DateTime?
   personal1_isd         String?   @db.VarChar(5)
   personal1_contact_no  BigInt?
@@ -325,7 +325,7 @@ model confreres_dtl {
   watsup3_no            BigInt?
   emergency_isd         String?   @db.VarChar(5)
   emergency_contact_no  BigInt?
-  personal_mailid1      String    @db.VarChar(255)
+  personal_mailid1      String?   @db.VarChar(255)
   blood_group_code      String?   @db.VarChar(10)
   nationality_code      String?   @db.VarChar(10)
   language_code         String?   @db.VarChar(2)
