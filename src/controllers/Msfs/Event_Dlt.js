@@ -13,6 +13,7 @@ const logoPath = path.join(__dirname, 'MSFSLOGO/MSFS.png');
 
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../../config/index.js";
+import { provinceScopeWhere, resolveDataScope, sendScopeError } from '../../utils/dataScope.js';
 // Function to generate the next event_id as a formatted string
 const generateNextEventId = async () => {
     const lastEvent = await prisma.event_dtl.findFirst({
@@ -37,37 +38,14 @@ const generateNextEventId = async () => {
 
 export const getAllEvents = async (req, res) => {
     try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-          return res.status(401).json({ error: "Access token is missing or invalid" });
-        }
-        const token = authHeader.split(" ")[1];
-        const decoded = jwt.verify(token, JWT_SECRET);
-    
-        // Get province_name from decoded token
-        const provinceName = decoded.province_name;
-    
-        // Fetch province_code based on province_name
-        const province = await prisma.province_mst.findFirst({
-          where: { province_name: provinceName },
-          select: { province_code: true },
-        });
-    
-        if (!province) {
-          return res.status(404).json({ error: "Province not found for the logged-in user" });
-        }
-        const provinceCode = province.province_code;
+        const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code || null);
 
         // Fetch events based on the province_code
         const events = await prisma.event_dtl.findMany({
           where: {
-            province_code: provinceCode, // Filter by the province_code
+            ...provinceScopeWhere(provinceCodes),
           },
         });
-
-        if (!events || events.length === 0) {
-            return res.status(404).json({ error: 'No events found' });
-        }
 
         const formattedEvents = await Promise.all(events.map(async (event) => {
           const [province, language] = await Promise.all([
@@ -93,7 +71,7 @@ export const getAllEvents = async (req, res) => {
         return res.status(200).json(formattedEvents);
     } catch (error) {
         console.error('Error fetching events:', error.message);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        return sendScopeError(res, error, 'Internal Server Error');
     }
 };
 
@@ -214,7 +192,7 @@ export const updateEvent = async (req, res) => {
                 event_detail: event_detail || event.event_detail,
                 language_code: language_code || 'en',  // Default to existing value
                 concurrency_val: concurrency_val || 1,  // Default to existing value
-                updated_by: updatedBy,  // Default to 'admin' if not provided
+                updated_by: res.locals.user?.user_id || updatedBy,
                 updated_date: effectiveUpdatedDate,
                 from_time: parsedFromTime,  // Store parsed from_time
                 to_time: parsedToTime,  // Store parsed to_time
@@ -368,7 +346,7 @@ export const saveEvent = async (req, res) => {
         event_detail: event_detail || null,
         language_code: 'en',
         concurrency_val: 1,
-        created_by: createdBy,
+        created_by: res.locals.user?.user_id || createdBy,
         created_date: new Date(),
         updated_by: null,
         updated_date: null,

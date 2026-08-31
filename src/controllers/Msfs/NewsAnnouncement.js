@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { provinceScopeWhere, resolveDataScope, sendScopeError } from '../../utils/dataScope.js';
 import { HttpException } from '../../exceptions/HttpException.js';
 import { logger } from '../../utils/logger.js';
 import { StatusCodes } from 'http-status-codes';
@@ -103,7 +104,7 @@ export const saveAnnouncement = async (req, res) => {
                 signature_address: cleanedSignatureAddress,
                 language_code: language_code || 'en',  // Default language 'en'
                 concurrency_val: concurrency_val || 1,
-                created_by: created_by || 'admin',  // Default created_by 'admin'
+                created_by: res.locals.user?.user_id || created_by || 'admin',
                 created_date: new Date(),
                 updated_by: updated_by || null,
                 updated_date: updated_date ? new Date(updated_date) : null,  // Set to null if not provided
@@ -128,8 +129,10 @@ export const saveAnnouncement = async (req, res) => {
 
 export const getAllAnnouncements = async (req, res) => {
     try {
+        const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code || null);
         // Fetch all announcements with related data (if any)
         const announcements = await prisma.announcements_dtl.findMany({
+            where: provinceScopeWhere(provinceCodes),
             orderBy: {
                 created_date: 'asc', // Optional: order by created_date
             },
@@ -157,14 +160,10 @@ export const getAllAnnouncements = async (req, res) => {
             },
         });
 
-        if (announcements.length === 0) {
-            return res.status(404).json({ message: 'No announcements found' });
-        }
-
         return res.status(200).json({ message: 'Fetched all announcements successfully', data: announcements });
     } catch (error) {
         console.error('Error fetching announcements:', error.message);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        return sendScopeError(res, error, 'Internal Server Error');
     }
 };
 
@@ -281,7 +280,7 @@ export const updateAnnouncement = async (req, res) => {
                 signature_address: signature_address || existingAnnouncement.signature_address,
                 language_code: language_code || existingAnnouncement.language_code,
                 concurrency_val: concurrency_val || existingAnnouncement.concurrency_val,
-                updated_by: updated_by || 'admin',  // Set default value if not provided
+                updated_by: res.locals.user?.user_id || updated_by || 'admin',
                 updated_date: updated_date ? new Date(updated_date) : new Date(),  // Set current date if not provided
             },
         });
@@ -370,7 +369,7 @@ export const updateNewsAnnouncement = async (req, res) => {
           signature_address,
           language_code,
           concurrency_val,
-          updated_by: updated_by || 'admin',  // Default to admin if not provided
+          updated_by: res.locals.user?.user_id || updated_by || 'admin',
           updated_date: updated_date ? new Date(updated_date) : new Date(),  // Set current date if not provided
         },
       });
@@ -641,7 +640,7 @@ export const saveAnnouncementAndSendEmail = async (req, res) => {
         anouncement_dtl,
         signature_address,
         language_code: language_code || null,
-        created_by,
+        created_by: res.locals.user?.user_id || created_by,
         created_date: new Date(),
         updated_by: null,
         updated_date: null,

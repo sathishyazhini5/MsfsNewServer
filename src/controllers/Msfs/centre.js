@@ -4,6 +4,7 @@ import xlsx from 'xlsx';
 import fs from 'fs'
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../../config/index.js";
+import { provinceScopeWhere, resolveDataScope, sendScopeError } from '../../utils/dataScope.js';
 
 export const saveCentreDetails = async (req, res) => {
   const {
@@ -260,7 +261,7 @@ export const saveCentreDetails = async (req, res) => {
         website3,
         language_code,
         concurrency_val,
-        created_by: createdBy,
+        created_by: res.locals.user?.user_id || createdBy,
         created_date,
       }
     });
@@ -291,45 +292,10 @@ export const saveCentreDetails = async (req, res) => {
 
 export const getCentreDetails = async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-
-    // Validate the token
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    let decoded;
-
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-      if (error.name === "TokenExpiredError") {
-        return res.status(401).json({ error: "Token has expired" });
-      }
-      if (error.name === "JsonWebTokenError") {
-        return res.status(401).json({ error: "Invalid token" });
-      }
-      return res.status(500).json({ error: "Failed to verify token" });
-    }
-
-    // Extract province_name and created_by from the token
-    const provinceName = decoded.province_name;
-
-    // Fetch province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the given name" });
-    }
-
-    const province_code = province.province_code;
+    const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code || null);
     // Fetch all records from centre_dtl
     const centres = await prisma.centre_dtl.findMany({
-      where: { province_code }, // Filter by the derived province_code
+      where: provinceScopeWhere(provinceCodes),
     });
 
     if (!centres.length) {
@@ -410,7 +376,7 @@ export const getCentreDetails = async (req, res) => {
     return res.status(200).json({ message: 'Fetched all centre details successfully', data: centresWithNames });
   } catch (error) {
     console.error('Error fetching centre details:', error.message);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return sendScopeError(res, error, 'Internal Server Error');
   }
 };
 
@@ -925,7 +891,7 @@ export const updateCentreDetails = async (req, res) => {
         website3,
         language_code,
         concurrency_val,
-        updated_by: UpdatedBy,
+        updated_by: res.locals.user?.user_id || UpdatedBy,
         updated_date
       }
     });
@@ -1235,7 +1201,7 @@ export const saveCentreDetailsByExcel = async (req, res) => {
           office_mailid2: row['Office MailId 2'] ? maxLength(row['Office MailId 2'], 255) : null,
           website1: row['Official Website 1'] || null,
           concurrency_val: row['Concurrency Value'] || 1,
-          created_by: createdBy,
+          created_by: res.locals.user?.user_id || createdBy,
           created_date: new Date(),
         };
 
@@ -1775,50 +1741,12 @@ const convertBigIntToString = (obj) => {
 
 export const getAllCentreDetailsForExport = async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-
-    // Validate JWT token
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    let decoded;
-
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-      if (error.name === "TokenExpiredError") {
-        return res.status(401).json({ error: "Token has expired" });
-      }
-      if (error.name === "JsonWebTokenError") {
-        return res.status(401).json({ error: "Invalid token" });
-      }
-      return res.status(500).json({ error: "Failed to verify token" });
-    }
-
-    const provinceName = decoded.province_name;
-
-    // Fetch province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the given name" });
-    }
-
-    const province_code = province.province_code;
+    const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code || null);
 
     // Fetch all center details filtered by province_code
     const centres = await prisma.centre_dtl.findMany({
-      where: { province_code },
+      where: provinceScopeWhere(provinceCodes),
     });
-
-    if (!centres.length) {
-      return res.status(404).json({ error: "No center details found." });
-    }
 
     // Fetch related details for each center
     const centresWithDetails = await Promise.all(

@@ -7,6 +7,7 @@ import { StatusCodes } from "http-status-codes";
 import jwt from "jsonwebtoken";
 import { format } from 'date-fns';
 import { log } from 'console';
+import { provinceScopeWhere, resolveDataScope, sendScopeError } from '../../utils/dataScope.js';
 
 const prisma = new PrismaClient();
 
@@ -271,34 +272,12 @@ export const saveObituary = async (req, res) => {
 
 export async function getObituaryData(req, res) {
   try {
-    // Fetch all obituary records
-    // Authentication: Check for Bearer token in the Authorization header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    // Get province_name from decoded token
-    const provinceName = decoded.province_name;
-
-    // Fetch province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-    const provinceCode = province.province_code;
+    const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code || null);
     
 
    // 🔴 Only fetch obituaries for the user's province
    const obituaries = await prisma.obituary_dtl.findMany({
-    where: { province_code: provinceCode },
+    where: provinceScopeWhere(provinceCodes),
   });
 
     // Fetch all confreres details from confreres_dtl table
@@ -394,9 +373,7 @@ export async function getObituaryData(req, res) {
     return res.status(200).json(responseResult);
   } catch (error) {
     console.error('Error fetching obituary data:', error);
-    return res.status(500).json({ error: 'An error occurred while fetching obituary data.' });
-  } finally {
-    await prisma.$disconnect();
+    return sendScopeError(res, error, 'An error occurred while fetching obituary data.');
   }
 }
 

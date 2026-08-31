@@ -578,6 +578,7 @@ export const getDivisionCountsforTokenConcretion = async (req, res) => {
           where: {
               province_code: { in: provinceCodes },
               promotion_to_code: { in: Object.keys(promotionTypeMap) },
+              end_date: null,
           },
           _count: { promotion_to_code: true },
       });
@@ -599,6 +600,7 @@ export const getDivisionCountsforTokenConcretion = async (req, res) => {
           where: {
               province_code: { in: provinceCodes },
               member_type_code: { in: Object.keys(memberTypeMap) },
+              is_active: true,
           },
           _count: { member_type_code: true },
       });
@@ -620,6 +622,7 @@ export const getDivisionCountsforTokenConcretion = async (req, res) => {
           where: {
               province_code: { in: provinceCodes },
               scholastic_type_code: { in: Object.keys(scholasticTypeMap) },
+              end_date: null,
           },
           _count: { scholastic_type_code: true },
       });
@@ -650,6 +653,25 @@ export const getDivisionCountsforTokenConcretion = async (req, res) => {
           },
       });
 
+      const [centreTypeCounts, dioceseCounts] = await Promise.all([
+          prisma.centre_dtl.groupBy({
+              by: ["apostolate_code", "centre_type_code"],
+              where: { province_code: { in: provinceCodes } },
+              _count: { centre_code: true },
+          }),
+          prisma.centre_dtl.groupBy({
+              by: ["apostolate_code"],
+              where: {
+                  province_code: { in: provinceCodes },
+                  diocese_code: { not: "" },
+              },
+              _count: { centre_code: true },
+          }),
+      ]);
+
+      const processedCentreCombinations = new Set();
+      const processedDioceseApostolates = new Set();
+
       for (const apostolate of apostolates) {
           const apostolateType = apostolateTypeMap[apostolate.apostolate_code.toLowerCase()];
           if (!apostolateType) continue;
@@ -658,28 +680,28 @@ export const getDivisionCountsforTokenConcretion = async (req, res) => {
               apostolateCounts[apostolateType] = {};
           }
 
-          const centreCount = await prisma.centre_dtl.count({
-              where: {
-                  province_code: { in: provinceCodes },
-                  apostolate_code: apostolate.apostolate_code,
-                  centre_type_code: apostolate.centre_type_code,
-              },
-          });
+          const centreCombinationKey = `${apostolate.apostolate_code}:${apostolate.centre_type_code}`;
+          if (!processedCentreCombinations.has(centreCombinationKey)) {
+              processedCentreCombinations.add(centreCombinationKey);
+              const centreCount = centreTypeCounts.find((count) =>
+                  count.apostolate_code === apostolate.apostolate_code &&
+                  count.centre_type_code === apostolate.centre_type_code
+              )?._count.centre_code || 0;
 
-          if (centreCount >= 1) {
-              apostolateCounts[apostolateType][apostolate.centre_type_name] = centreCount;
+              if (centreCount >= 1) {
+                  apostolateCounts[apostolateType][apostolate.centre_type_name] =
+                      (apostolateCounts[apostolateType][apostolate.centre_type_name] || 0) + centreCount;
+              }
           }
 
-          if (!apostolateCounts[apostolateType].diocse) {
-              const diocseCount = await prisma.centre_dtl.count({
-                  where: {
-                      province_code: { in: provinceCodes },
-                      apostolate_code: apostolate.apostolate_code,
-                      diocese_code: { not: "" },
-                  },
-              });
+          if (!processedDioceseApostolates.has(apostolate.apostolate_code)) {
+              processedDioceseApostolates.add(apostolate.apostolate_code);
+              const diocseCount = dioceseCounts.find((count) =>
+                  count.apostolate_code === apostolate.apostolate_code
+              )?._count.centre_code || 0;
 
-              apostolateCounts[apostolateType].diocse = diocseCount;
+              apostolateCounts[apostolateType].diocse =
+                  (apostolateCounts[apostolateType].diocse || 0) + diocseCount;
           }
       }
 
@@ -696,21 +718,22 @@ export const getDivisionCountsforTokenConcretion = async (req, res) => {
           return acc;
       }, {});
 
+      const sumGroupedCount = (groups, codeField, countField, typeMap, expectedName) =>
+          groups
+              .filter((group) => typeMap[group[codeField]?.toLowerCase()] === expectedName)
+              .reduce((total, group) => total + group._count[countField], 0);
+
       res.json({
           concretion_code,
           concretion_name: concretion.concretion_name,
           role_name,
           provinces: provinces.map((p) => ({ province_code: p.province_code, province_name: p.province_name })),
-          firstProfessionCount: promotionCounts.find(
-              (p) => promotionTypeMap[p.promotion_to_code.toLowerCase()] === "first profession"
-          )?._count.promotion_to_code || 0,
-          finalProfessionCount: promotionCounts.find(
-              (p) => promotionTypeMap[p.promotion_to_code.toLowerCase()] === "final profession"
-          )?._count.promotion_to_code || 0,
-          priest: memberCounts.find((m) => memberTypeMap[m.member_type_code.toLowerCase()] === "priest")?._count.member_type_code || 0,
-          "religious brother": memberCounts.find((m) => memberTypeMap[m.member_type_code.toLowerCase()] === "religious brother")?._count.member_type_code || 0,
-          novoices: scholasticCounts.find((s) => scholasticTypeMap[s.scholastic_type_code.toLowerCase()] === "novoices")?._count.scholastic_type_code || 0,
-          minor_seminarians: scholasticCounts.find((s) => scholasticTypeMap[s.scholastic_type_code.toLowerCase()] === "minor seminarians")?._count.scholastic_type_code || 0,
+          firstProfessionCount: sumGroupedCount(promotionCounts, "promotion_to_code", "promotion_to_code", promotionTypeMap, "first profession"),
+          finalProfessionCount: sumGroupedCount(promotionCounts, "promotion_to_code", "promotion_to_code", promotionTypeMap, "final profession"),
+          priest: sumGroupedCount(memberCounts, "member_type_code", "member_type_code", memberTypeMap, "priest"),
+          "religious brother": sumGroupedCount(memberCounts, "member_type_code", "member_type_code", memberTypeMap, "religious brother"),
+          novoices: sumGroupedCount(scholasticCounts, "scholastic_type_code", "scholastic_type_code", scholasticTypeMap, "novoices"),
+          minor_seminarians: sumGroupedCount(scholasticCounts, "scholastic_type_code", "scholastic_type_code", scholasticTypeMap, "minor seminarians"),
           ...apostolateCounts,
           ...aggregatedCounts,
       });

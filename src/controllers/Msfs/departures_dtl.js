@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 import { JWT_SECRET } from "../../config/index.js";
 import { StatusCodes } from "http-status-codes";
 import jwt from "jsonwebtoken";
+import { provinceScopeWhere, resolveDataScope, sendScopeError } from '../../utils/dataScope.js';
 
 const prisma = new PrismaClient();
 
@@ -312,32 +313,12 @@ export const saveDepartureDetails = async (req, res) => {
 
 export const getAllDepartures = async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    // Get province_name from decoded token
-    const provinceName = decoded.province_name;
-
-    // Fetch province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-    const provinceCode = province.province_code;
+    const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code || null);
 
 
     // Fetch all records from departures_dtl
     const departures = await prisma.departures_dtl.findMany({
-      where: { province_code: provinceCode }, // Filter by province_code
+      where: provinceScopeWhere(provinceCodes),
     });
 
     // Fetch related names for each departure using raw SQL
@@ -395,7 +376,7 @@ export const getAllDepartures = async (req, res) => {
     return res.status(200).json(departuresWithNames);
   } catch (error) {
     console.error('Error fetching departures:', error);
-    return res.status(500).json({ error: 'An error occurred while fetching departures' });
+    return sendScopeError(res, error, 'An error occurred while fetching departures');
   }
 };
 

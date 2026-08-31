@@ -297,7 +297,7 @@ model headquarters_dtl {
 
 // 2. confreres_dtl
 model confreres_dtl {
-  confrer_code          String    @db.VarChar(10) // PK
+  confrer_code          String    @db.VarChar(15) // PK
   province_code         String    @db.VarChar(10) // PK
   member_type_code      String?   @db.VarChar(10)
   first_name            String    @db.VarChar(50)
@@ -338,11 +338,21 @@ model confreres_dtl {
   
 
   @@id([confrer_code, province_code])
+  @@unique([confrer_code])
+}
+
+model confrere_code_counter {
+  province_code    String @db.VarChar(10)
+  ordination_year  Int
+  last_sequence    Int
+  updated_date     DateTime @default(now()) @updatedAt
+
+  @@id([province_code, ordination_year])
 }
 
 // 3. confreres_feedback_dtl
 model confreres_feedback_dtl {
-  confrer_code            String    @db.VarChar(10) // PK
+  confrer_code            String    @db.VarChar(15) // PK
   confrer_feedback_seq_no Int // PK
   province_code           String    @db.VarChar(10) // PK
   commencement_date       DateTime?
@@ -436,7 +446,7 @@ model centre_dtl {
 // 6. curia_advisors_dtl
 model curia_advisors_dtl {
    curia_code           String  @db.VarChar(10)
-  confrer_code       String    @db.VarChar(10) // PK
+  confrer_code       String    @db.VarChar(15) // PK
   province_code      String    @db.VarChar(10) // PK
   division_type_code String    @db.VarChar(50) // PK
   division_code      String    @db.VarChar(10) // PK
@@ -472,7 +482,7 @@ model curia_advisors_dtl {
 
 // 7. appoint_transfer_dtl
 model appoint_transfer_dtl {
-  confrer_code                String    @db.VarChar(10)
+  confrer_code                String    @db.VarChar(15)
   confrer_seq_no              Int
   province_code               String    @db.VarChar(10)
   division_type_code          String    @db.VarChar(50)
@@ -500,7 +510,7 @@ model appoint_transfer_dtl {
 
 // 8. appoint_transfer_his_dtl
 model appoint_transfer_his_dtl {
-  confrer_code                String    @db.VarChar(10) // PK
+  confrer_code                String    @db.VarChar(15) // PK
   confrer_seq_no              Int // PK
   confrer_his_seq_no          Int // PK
   province_code               String    @db.VarChar(10)
@@ -646,7 +656,7 @@ model scholastics_feedback_dtl{
 model departures_dtl {
   departure_code         String  @id @db.VarChar(10)
   province_code          String  @db.VarChar(10)
-  confrer_scholastic_code String  @db.VarChar(10)
+  confrer_scholastic_code String  @db.VarChar(15)
   member_type_code       String? @db.VarChar(10)
   departure_type_code    String? @db.VarChar(10)
   departure_date         DateTime?
@@ -672,7 +682,7 @@ model anniversary_notify_dtl {
   notify_id               Int       @id @default(autoincrement()) // PK
   province_code           String    @db.VarChar(10)
   anniversary_type_code   String?   @db.VarChar(10)
-  confrer_scholastic_code String?   @db.VarChar(10)
+  confrer_scholastic_code String?   @db.VarChar(15)
   notify_sent_date        DateTime?
   nofify_received_flag    Int?
   anniversary_date        DateTime?
@@ -739,7 +749,7 @@ model announcements_dtl {
 model obituary_dtl {
   obituary_code          String     @db.VarChar(10)
   province_code           String    @db.VarChar(10) // PK
-  confrer_scholastic_code String    @db.VarChar(10) // PK
+  confrer_scholastic_code String    @db.VarChar(15) // PK
   member_type_code        String?   @db.VarChar(10)
   cause_of_death         String? @db.VarChar(100)
   disease_name            String?   @db.VarChar(100)

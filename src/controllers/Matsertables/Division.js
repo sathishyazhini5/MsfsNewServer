@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../../config/index.js";
+import { provinceScopeWhere, resolveDataScope, sendScopeError } from '../../utils/dataScope.js';
 
 export const saveDivisionSetup = async (req, res) => {
   const {
@@ -45,7 +46,7 @@ export const saveDivisionSetup = async (req, res) => {
 
     // Extract `province_name` and `created_by` from the token
     const provinceName = decoded.province_name;
-    const created_by = decoded.role_name || decoded.username || "Unknown";
+    const created_by = decoded.user_id || decoded.username || "Unknown";
 
     // Find the corresponding province_code based on province_name
     const province = await prisma.province_mst.findFirst({
@@ -146,71 +147,23 @@ export const saveDivisionSetup = async (req, res) => {
 
 
 export const getDivisions = async (req, res) => {
-  const authHeader = req.headers.authorization;
-
-  // Log the authorization header to inspect
-  console.log("Authorization header:", authHeader);
-
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Access token is missing or invalid" });
-  }
-
-  const token = authHeader.split(" ")[1];
-  let decoded;
-
   try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET);
-  } catch (err) {
-    if (err.name === "TokenExpiredError") {
-      return res.status(401).json({ error: "Access token has expired" });
-    }
-    return res.status(401).json({ error: "Invalid token" });
-  }
-
-  // Log the decoded token for inspection
-  console.log("Decoded token:", decoded);
-
-  const userProvince = decoded.province_name; // Use province_name instead of province_code
-  if (!userProvince) {
-    return res.status(400).json({ error: "User province information is missing in the token." });
-  }
-
-  // Log the user province extracted from token
-  console.log("User province from token:", userProvince);
-
-  try {
-    // Log the query with the province name
-    console.log("Running query with province:", userProvince);
-
-    const divisions = await prisma.$queryRaw`
-      SELECT 
-        ds.province_code,
-        ds.division_type_code,
-        ds.division_code,
-        ds.division_name,
-        ds.language_code,
-        ds.concurrency_val,
-        ds.created_by,
-        ds.created_date,
-        ds.updated_by,
-        ds.updated_date,
-        pm.province_name,
-        qc.quickcode_name as division_type_name
-      FROM 
-        division_setup_mst ds
-      JOIN 
-        province_mst pm ON ds.province_code = pm.province_code
-      JOIN 
-        quickcode_mst qc ON ds.division_type_code = qc.quick_code
-      WHERE 
-        qc.quick_code_type = 'divtyp' AND
-        pm.province_name = ${userProvince}  -- Use province_name in the query
-    `;
-
-    res.json({ data: divisions });
+    const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code || null);
+    const [divisions, provinces, divisionTypes] = await Promise.all([
+      prisma.division_setup_mst.findMany({ where: provinceScopeWhere(provinceCodes), orderBy: { division_name: 'asc' } }),
+      prisma.province_mst.findMany({ select: { province_code: true, province_name: true } }),
+      prisma.quickcode_mst.findMany({ where: { quick_code_type: 'divtyp' }, select: { quick_code: true, quickcode_name: true } }),
+    ]);
+    const provinceNames = Object.fromEntries(provinces.map((row) => [row.province_code, row.province_name]));
+    const typeNames = Object.fromEntries(divisionTypes.map((row) => [row.quick_code, row.quickcode_name]));
+    res.json({ data: divisions.map((row) => ({
+      ...row,
+      province_name: provinceNames[row.province_code] || null,
+      division_type_name: typeNames[row.division_type_code] || null,
+    })) });
   } catch (error) {
     console.error("Error fetching divisions:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    sendScopeError(res, error, "Internal Server Error");
   }
 };
 
@@ -243,7 +196,7 @@ export const getDivisions = async (req, res) => {
         }
         return res.status(401).json({ error: "Invalid token" });
       }
-      const updated_by = decoded.role_name || decoded.username || "Unknown";
+      const updated_by = decoded.user_id || decoded.username || "Unknown";
       console.log("Authenticated user:", decoded);
       console.log('Received data for update:', { province_code, division_type_code, division_code }, req.body);
   

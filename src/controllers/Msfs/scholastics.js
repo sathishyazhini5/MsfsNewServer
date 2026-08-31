@@ -7,6 +7,7 @@ import { error } from 'console';
 import { JWT_SECRET } from "../../config/index.js";
 import {uploadBufferToBlob} from "../../middlewares/azureBlob.js"
 import multer from 'multer';
+import { provinceScopeWhere, resolveDataScope, sendScopeError } from '../../utils/dataScope.js';
 const excelUpload = multer();
 
 
@@ -199,7 +200,7 @@ export const saveScholasticDetail = async (req, res) => {
           nationality_code: nationality_code || null,
           language_code,
           concurrency_val,
-          created_by: createdBy,
+          created_by: res.locals.user?.user_id || createdBy,
           created_date: finalCreatedDate,
         }
       });
@@ -221,52 +222,15 @@ export const saveScholasticDetail = async (req, res) => {
 
 export const getAllScholastics = async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    let decoded;
-
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-      if (error.name === "TokenExpiredError") {
-        return res.status(401).json({ error: "Token has expired" });
-      }
-      if (error.name === "JsonWebTokenError") {
-        return res.status(401).json({ error: "Invalid token" });
-      }
-      return res.status(500).json({ error: "Failed to verify token" });
-    }
-
-    // Extract `province_name` from the decoded token
-    const provinceName = decoded.province_name;
-
-    // Fetch `province_code` based on `province_name`
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the given name" });
-    }
-
-    const province_code = province.province_code;
+    const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code || null);
 
     // Get all scholastic details
     const scholastics = await prisma.scholastics_dtl.findMany({
       where: {
-        province_code,
+        ...provinceScopeWhere(provinceCodes),
         is_active: true,
       },
     });
-
-    if (!scholastics.length) {
-      return res.status(404).json({ error: "No scholastic records found" });
-    }
 
     const responseData = scholastics.map((s) => {
       return {
@@ -285,7 +249,7 @@ export const getAllScholastics = async (req, res) => {
     res.status(200).json(responseData);
   } catch (error) {
     console.log(error);
-    res.status(500).json({ error: error.message });
+    sendScopeError(res, error, "Failed to load scholastics");
   }
 };
 
@@ -649,7 +613,7 @@ export const updateScholasticDetail = async (req, res) => {
                 : null,
             image_file_name: image_file_name,   // ✅ Should be here
             image_file_path: image_file_path,   // ✅ Should be here
-            created_by: UpdateBy,
+            created_by: res.locals.user?.user_id || UpdateBy,
             created_date: new Date(),
           };
           
@@ -816,7 +780,7 @@ export const saveScholasticByExcel = async (req, res) => {
           personal_mailid1: row['Personal Email'],
           language_code: 'en',
           concurrency_val: 1,
-          created_by: createdBy,
+          created_by: res.locals.user?.user_id || createdBy,
           created_date: row['Created Date'] ? new Date(row['Created Date']) : new Date(),
         };
 
@@ -1191,51 +1155,12 @@ export const getAcademicDetailsByScholasticCode = async (req, res) => {
 
 export const getAllScholasticsForExport = async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-
-    // Validate JWT token
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    let decoded;
-
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-      if (error.name === "TokenExpiredError") {
-        return res.status(401).json({ error: "Token has expired" });
-      }
-      if (error.name === "JsonWebTokenError") {
-        return res.status(401).json({ error: "Invalid token" });
-      }
-      return res.status(500).json({ error: "Failed to verify token" });
-    }
-
-    // Extract `province_name` from the token
-    const provinceName = decoded.province_name;
-
-    // Fetch `province_code` based on `province_name`
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the given name" });
-    }
-
-    const province_code = province.province_code;
+    const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code || null);
 
     // Fetch Scholastic details filtered by province_code
     const scholastics = await prisma.scholastics_dtl.findMany({
-      where: { province_code },
+      where: provinceScopeWhere(provinceCodes),
     });
-
-    if (!scholastics.length) {
-      return res.status(404).json({ error: "No Scholastic records found." });
-    }
 
     // Fetch related details for mappings (e.g., blood group, nationality, member type)
     const [quickCodes, nationalities, memberTypes] = await Promise.all([
@@ -1274,6 +1199,6 @@ export const getAllScholasticsForExport = async (req, res) => {
     res.status(200).json(scholasticsWithDetails);
   } catch (error) {
     console.error("Error fetching Scholastic details:", error.message);
-    res.status(500).json({ error: "Internal Server Error" });
+    sendScopeError(res, error, "Internal Server Error");
   }
 };

@@ -4,6 +4,7 @@ import { HttpException } from '../../exceptions/HttpException.js';
 import { logger } from '../../utils/logger.js';
 import { JWT_SECRET } from '../../config/index.js'
 import moment from 'moment';
+import { provinceScopeWhere, resolveDataScope } from '../../utils/dataScope.js';
 
 const prisma = new PrismaClient();
 
@@ -1357,30 +1358,7 @@ export const getAppointmentTransfers = async (req, res, next) => {
             throw new HttpException(StatusCodes.BAD_REQUEST, 'Invalid transferType. It should be either 0 (intra-province) or 1 (inter-province).');
         }
 
-        // For intra-province transfers, extract the user's province_code
-        let provinceCode;
-        if (transferType === '0') { // Intra-province only
-            const authHeader = req.headers.authorization;
-            if (!authHeader || !authHeader.startsWith("Bearer ")) {
-                return res.status(StatusCodes.UNAUTHORIZED).json({ error: "Access token is missing or invalid" });
-            }
-
-            const token = authHeader.split(" ")[1];
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            const provinceName = decoded.province_name;
-
-            // Fetch province details
-            const province = await prisma.province_mst.findFirst({
-                where: { province_name: provinceName },
-                select: { province_code: true },
-            });
-
-            if (!province) {
-                return res.status(StatusCodes.NOT_FOUND).json({ error: "Province not found" });
-            }
-
-            provinceCode = province.province_code;
-        }
+        const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code || null);
 
         // Fetch appointments
         const appointments = await prisma.appoint_transfer_dtl.findMany({
@@ -1388,7 +1366,7 @@ export const getAppointmentTransfers = async (req, res, next) => {
                 inter_province_transfer_chk: parseInt(transferType),
                 designation_end_date: null,
                 is_active: true,
-                ...(transferType === '0' ? { province_code: provinceCode } : {}), // Filter by provinceCode for intra-province only
+                ...provinceScopeWhere(provinceCodes),
             },
         });
 
@@ -1470,8 +1448,6 @@ export const getAppointmentTransfers = async (req, res, next) => {
     } catch (error) {
         logger.error(`Error in getAppointmentTransfers: ${error.stack}`);
         next(new HttpException(error.status || StatusCodes.INTERNAL_SERVER_ERROR, error.message || 'Failed to fetch appointment transfers'));
-    } finally {
-        await prisma.$disconnect();
     }
 };
 

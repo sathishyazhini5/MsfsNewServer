@@ -88,7 +88,7 @@ export const createProvince = async (req, res, next) => {
       console.log('Validation Error: Email already exists');
       return res.status(400).json({ error: 'Email is already in use' });
     }
-    const currentUserRole = res.locals.user?.role_name || 'Unknown';
+    const currentUserRole = res.locals.user?.user_id || 'Unknown';
     const provinceCode = await generateNextProvinceCode();
     const defaultPassword = 'pass123';
 
@@ -167,7 +167,7 @@ console.log('Request body:', req.body);
 
 try {
   // Get current user role from authentication middleware
-  const updatedBy = res.locals.user?.role_name || 'Unknown';
+  const updatedBy = res.locals.user?.user_id || 'Unknown';
   
   // Retrieve existing province and user records
   const existingProvince = await prisma.province_mst.findUnique({ where: { province_code } });

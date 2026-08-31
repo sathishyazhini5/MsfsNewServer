@@ -283,6 +283,7 @@ const promotionCounts = await prisma.scholastics_admisn_promon_dtl.groupBy({
   where: {
     ...(province_code && province_code !== "ALL" ? { province_code } : {}),
     promotion_to_code: { in: Object.keys(promotionTypeMap) },
+    end_date: null,
   },
   _count: { promotion_to_code: true },
 });
@@ -329,6 +330,7 @@ console.log("Promotion Counts:", promotionTypeCounts);
         where: {
           ...(province_code && province_code !== "ALL" ? { province_code } : {}), // Apply province filter only if a specific province is selected
           member_type_code: { in: Object.keys(quickcodeMap) },
+          is_active: true,
         },
         _count: { member_type_code: true },
       });
@@ -372,6 +374,7 @@ console.log("Promotion Counts:", promotionTypeCounts);
         where: {
           ...(province_code && province_code !== "ALL" ? { province_code } : {}),
           scholastic_type_code: { in: Object.keys(scholasticTypeMap) },
+          end_date: null,
         },
         _count: { scholastic_type_code: true },
       });
@@ -417,7 +420,26 @@ console.log("Promotion Counts:", promotionTypeCounts);
         },
       });
 
-      // Process the combinations of apostolate type and center type
+      const centreScope = {
+        ...(province_code && province_code !== "ALL" ? { province_code } : {}),
+      };
+      const [centreTypeCounts, dioceseCounts] = await Promise.all([
+        prisma.centre_dtl.groupBy({
+          by: ["apostolate_code", "centre_type_code"],
+          where: centreScope,
+          _count: { centre_code: true },
+        }),
+        prisma.centre_dtl.groupBy({
+          by: ["apostolate_code"],
+          where: { ...centreScope, diocese_code: { not: "" } },
+          _count: { centre_code: true },
+        }),
+      ]);
+
+      const processedCentreCombinations = new Set();
+      const processedDioceseApostolates = new Set();
+
+      // Process every distinct apostolate/centre-type combination exactly once.
       for (const apostolate of apostolates) {
         const apostolateType = apostolateTypeMap[apostolate.apostolate_code.toLowerCase()];
         if (!apostolateType) continue;
@@ -426,36 +448,27 @@ console.log("Promotion Counts:", promotionTypeCounts);
           apostolateCounts[apostolateType] = {};
         }
 
-        if (!apostolateCounts[apostolateType][apostolate.centre_type_name]) {
-          // Count entries in the `centre_dtl` table matching the current combination
-          const centreCount = await prisma.centre_dtl.count({
-            where: {
-              ...(province_code && province_code !== "ALL" ? { province_code } : {}),
-              apostolate_code: apostolate.apostolate_code,
-              centre_type_code: apostolate.centre_type_code,
-            },
-          });
+        const centreCombinationKey = `${apostolate.apostolate_code}:${apostolate.centre_type_code}`;
+        if (!processedCentreCombinations.has(centreCombinationKey)) {
+          processedCentreCombinations.add(centreCombinationKey);
+          const centreCount = centreTypeCounts.find((count) =>
+            count.apostolate_code === apostolate.apostolate_code &&
+            count.centre_type_code === apostolate.centre_type_code
+          )?._count.centre_code || 0;
 
           if (centreCount >= 1) {
-            apostolateCounts[apostolateType][apostolate.centre_type_name] = centreCount;
+            apostolateCounts[apostolateType][apostolate.centre_type_name] =
+              (apostolateCounts[apostolateType][apostolate.centre_type_name] || 0) + centreCount;
           }
-
-
         }
-        if (!apostolateCounts[apostolateType].diocese) {
-          const dioceseCountData = await prisma.centre_dtl.groupBy({
-            by: ["diocese_code"], // ✅ Group by diocese_code to count unique entries
-            where: {
-              ...(province_code && province_code !== "ALL" ? { province_code } : {}),
-              apostolate_code: apostolate.apostolate_code,
-              diocese_code: { not: "" }, // Exclude empty values
-            },
-          });
-          
-          const dioceseCount = dioceseCountData.length; // ✅ Get count of unique dioceses
-          
 
-          apostolateCounts[apostolateType].diocese = dioceseCount;
+        if (!processedDioceseApostolates.has(apostolate.apostolate_code)) {
+          processedDioceseApostolates.add(apostolate.apostolate_code);
+          const dioceseCount = dioceseCounts.find((count) =>
+            count.apostolate_code === apostolate.apostolate_code
+          )?._count.centre_code || 0;
+          apostolateCounts[apostolateType].diocese =
+            (apostolateCounts[apostolateType].diocese || 0) + dioceseCount;
         }
       }
 

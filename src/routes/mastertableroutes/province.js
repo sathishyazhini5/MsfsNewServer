@@ -20,7 +20,7 @@ router.delete('/DeleteProvince/:province_code', deleteProvince);
 
 router.get('/getConfrereDetails/:province_code', getConfrereDetails)
 
-router.put('/updateProvince/:province_code', updateProvince);
+router.put('/updateProvince/:province_code', authenticate, updateProvince);
 
 router.get('/getacademicyearbyProvince/:province_code', getAcademicYearByProvinceCode);
 

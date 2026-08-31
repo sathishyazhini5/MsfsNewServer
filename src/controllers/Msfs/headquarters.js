@@ -1,5 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { JWT_SECRET } from "../../config/index.js";
+import { resolveDataScope, sendScopeError } from '../../utils/dataScope.js';
 const prisma = new PrismaClient();
 import jwt from "jsonwebtoken";
 
@@ -595,42 +596,10 @@ export const updateHeadquartersDetails = async (req, res) => {
 
 export const getHeadquartersDetails = async (req, res) => {
     try {
-        const authHeader = req.headers.authorization;
-
-    // Validate the token
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    let decoded;
-
-    try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-        if (error.name === "TokenExpiredError") {
-            return res.status(401).json({ error: "Token has expired" });
-        }
-        if (error.name === "JsonWebTokenError") {
-            return res.status(401).json({ error: "Invalid token" });
-        }
-        return res.status(500).json({ error: "Failed to verify token" });
-    }
-
-    // Extract province_name and created_by from the token
-    const provinceName = decoded.province_name;
-
-    // Fetch province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-        where: { province_name: provinceName },
-        select: { province_code: true },
-    });
-
-    if (!province) {
-        return res.status(404).json({ error: "Province not found for the given name" });
-    }
-
-    const province_code = province.province_code;
+        const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code || null);
+        const scopeSql = provinceCodes === null
+            ? Prisma.empty
+            : Prisma.sql`WHERE h.province_code IN (${Prisma.join(provinceCodes)})`;
         const headquartersDetails = await prisma.$queryRaw`
             SELECT 
                 h.headquarters_code,
@@ -707,8 +676,7 @@ export const getHeadquartersDetails = async (req, res) => {
                 division_setup_mst d ON h.division_code = d.division_code
                 AND h.province_code = d.province_code
                 AND h.division_type_code = d.division_type_code
-         WHERE 
-                h.province_code = ${province_code}
+            ${scopeSql}
         `;
 
         // Map the BigInt fields to strings
@@ -736,7 +704,7 @@ export const getHeadquartersDetails = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching headquarters details:', error);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        return sendScopeError(res, error, 'Internal Server Error');
     }
 };
 
@@ -1101,42 +1069,10 @@ export const getHeadquarters = async (req, res, next) => {
 
   export const getHeadquartersExportAll = async (req, res) => {
     try {
-        const authHeader = req.headers.authorization;
-
-    // Validate the token
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    let decoded;
-
-    try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-        if (error.name === "TokenExpiredError") {
-            return res.status(401).json({ error: "Token has expired" });
-        }
-        if (error.name === "JsonWebTokenError") {
-            return res.status(401).json({ error: "Invalid token" });
-        }
-        return res.status(500).json({ error: "Failed to verify token" });
-    }
-
-    // Extract province_name and created_by from the token
-    const provinceName = decoded.province_name;
-
-    // Fetch province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-        where: { province_name: provinceName },
-        select: { province_code: true },
-    });
-
-    if (!province) {
-        return res.status(404).json({ error: "Province not found for the given name" });
-    }
-
-    const province_code = province.province_code;
+        const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code || null);
+        const scopeSql = provinceCodes === null
+            ? Prisma.empty
+            : Prisma.sql`WHERE h.province_code IN (${Prisma.join(provinceCodes)})`;
         const headquartersDetails = await prisma.$queryRaw`
             SELECT 
                 h.headquarters_code,               
@@ -1210,8 +1146,7 @@ export const getHeadquarters = async (req, res, next) => {
                 division_setup_mst d ON h.division_code = d.division_code
                 AND h.province_code = d.province_code
                 AND h.division_type_code = d.division_type_code
-         WHERE 
-                h.province_code = ${province_code}
+            ${scopeSql}
         `;
 
         // Map the BigInt fields to strings
@@ -1239,7 +1174,7 @@ export const getHeadquarters = async (req, res, next) => {
         });
     } catch (error) {
         console.error('Error fetching headquarters details:', error);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        return sendScopeError(res, error, 'Internal Server Error');
     }
 };
 

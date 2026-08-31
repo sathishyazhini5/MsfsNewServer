@@ -6,43 +6,12 @@ import { uploadBufferToBlob } from '../../middlewares/azureBlob.js';
 import { JWT_SECRET } from "../../config/index.js";
 const prisma = new PrismaClient();
 import jwt from "jsonwebtoken";
-
-const generateConfrerCode = async (province_code, ordination_date) => {
-  const province = await prisma.province_mst.findFirst({
-    where: {
-      province_code: province_code.trim(),
-    },
-    select: {
-      short_name: true,
-    },
-  });
-
-  if (!province || !province.short_name) {
-    throw new Error(`Short name for province code ${province_code} not found in province_mst`);
-  }
-
-  const provinceShortName = province.short_name;
-  const ordinationYear = new Date(ordination_date).getFullYear();
-
-  const latestConfrere = await prisma.confreres_dtl.findFirst({
-    where: {
-      confrer_code: {
-        startsWith: `${provinceShortName}${ordinationYear}`,
-      },
-    },
-    orderBy: { confrer_code: 'desc' },
-  });
-
-  let sequenceNumber = 1;
-  if (latestConfrere) {
-    const latestCode = latestConfrere.confrer_code;
-    const latestSeqNo = parseInt(latestCode.slice(-3), 10);
-    sequenceNumber = latestSeqNo + 1;
-  }
-
-  const confrerCode = `${provinceShortName}${ordinationYear}${String(sequenceNumber).padStart(3, '0')}`;
-  return confrerCode;
-};
+import { provinceScopeWhere, resolveDataScope, sendScopeError } from '../../utils/dataScope.js';
+import {
+  ConfrereCreationError,
+  createConfrereWithGeneratedCode,
+  resolveAuthorizedProvince,
+} from '../../services/confrereCreationService.js';
 
 const maxLength = (str, len) => (str && str.length > len ? str.substring(0, len) : str);
 
@@ -297,12 +266,7 @@ export const saveConfrere = async (req, res) => {
       return res.status(500).json({ error: "Failed to verify token" });
     }
 
-    const provinceNameFromToken = decoded.province_name;
     const createdBy = decoded.role_name || decoded.username || 'Unknown';
-
-    if (!provinceNameFromToken) {
-      return res.status(400).json({ error: "Province information is missing in token" });
-    }
 
     const {
       memberType, bloodGroup, nationality,
@@ -338,10 +302,11 @@ export const saveConfrere = async (req, res) => {
 
     const lowercaseEmail = email.trim().toLowerCase();
 
-    const { province_code } = await fetchCodeByNameOrCode(provinceNameFromToken, 'province');
-    if (!province_code) return res.status(400).json({ error: "Invalid province in token" });
-
-    const confrer_code = await generateConfrerCode(province_code, ordinationDate);
+    const province = await resolveAuthorizedProvince({
+      prisma,
+      user: decoded,
+      requestedProvince: req.body.province_code || req.body.province || req.body.provinceName,
+    });
     const member_type_code = await fetchCodeByNameOrCode(memberType, 'memberType');
     const blood_group_code = bloodGroup ? await fetchCodeByNameOrCode(bloodGroup, "bloodGroup") : null;
     const nationality_code = await fetchCodeByNameOrCode(nationality, 'nationality');
@@ -363,8 +328,6 @@ export const saveConfrere = async (req, res) => {
     }
 
     const data = {
-      confrer_code: maxLength(confrer_code, 10),
-      province_code: maxLength(province_code, 10),
       member_type_code: maxLength(member_type_code, 10),
       first_name: maxLength(firstName, 50),
       middle_name: maxLength(middleName, 50),
@@ -396,11 +359,18 @@ export const saveConfrere = async (req, res) => {
       nationality_code: maxLength(nationality_code, 10),
       language_code: maxLength('en', 2),
       concurrency_val: 1,
-      created_by: createdBy,
+      created_by: res.locals.user?.user_id || createdBy,
       created_date: new Date(),
     };
 
-    const result = await prisma.confreres_dtl.create({ data });
+    const result = await createConfrereWithGeneratedCode({
+      prisma,
+      province,
+      ordinationDate,
+      data,
+      role: decoded.role_name,
+      source: 'MANUAL',
+    });
 
     const responseResult = {
       ...result,
@@ -413,38 +383,18 @@ export const saveConfrere = async (req, res) => {
       emergency_contact_no: result.emergency_contact_no?.toString() || null,
     };
 
-    res.status(200).json(responseResult);
+    res.status(200).json({ success: true, confrerCode: result.confrer_code, ...responseResult });
   } catch (error) {
     console.error('Error saving confrere:', error.message);
-    res.status(500).json({ error: error.message || 'An error occurred while saving the confrere' });
+    const status = error instanceof ConfrereCreationError ? error.status : 500;
+    res.status(status).json({ error: status === 500 ? 'An error occurred while saving the Confrere.' : error.message });
   }
 };
 
 export const getConfreres = async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-      if (error.name === "TokenExpiredError") {
-        return res.status(401).json({ error: "Token has expired" });
-      }
-      if (error.name === "JsonWebTokenError") {
-        return res.status(401).json({ error: "Invalid token" });
-      }
-      return res.status(500).json({ error: "Failed to verify token" });
-    }
-
-    const provinceNameFromToken = decoded.province_name;
-    if (!provinceNameFromToken) {
-      return res.status(400).json({ error: "Province information is missing in token" });
-    }
+    const requestedProvince = req.query.province_code || null;
+    const { provinceCodes } = await resolveDataScope(req, prisma, requestedProvince);
 
     const { confrer_code } = req.query;
 
@@ -479,7 +429,7 @@ export const getConfreres = async (req, res) => {
         return res.status(404).json({ error: "Confrere not found" });
       }
 
-      if (provincesMap.get(confreres.province_code) !== provinceNameFromToken) {
+      if (provinceCodes !== null && !provinceCodes.includes(confreres.province_code)) {
         return res.status(403).json({ error: "You are not authorized to access this confrere's details" });
       }
 
@@ -500,7 +450,7 @@ export const getConfreres = async (req, res) => {
     } else {
       // Fetch all confreres
       confreres = await prisma.confreres_dtl.findMany({
-        where: { is_active: true },
+        where: { is_active: true, ...provinceScopeWhere(provinceCodes) },
         orderBy: [
        
           { first_name: 'asc' },
@@ -508,9 +458,7 @@ export const getConfreres = async (req, res) => {
           { last_name: 'asc' },
         ],
       });
-      confreres = confreres
-        .filter((confrere) => provincesMap.get(confrere.province_code) === provinceNameFromToken)
-        .map((confrere) => ({
+      confreres = confreres.map((confrere) => ({
           ...confrere,
           province_name: provincesMap.get(confrere.province_code) || null,
           member_type_name: memberTypesMap.get(confrere.member_type_code) || null,
@@ -536,7 +484,7 @@ export const getConfreres = async (req, res) => {
     res.status(200).json(confreres);
   } catch (error) {
     console.error("Error fetching confreres:", error.message);
-    res.status(500).json({ error: error.message || "An error occurred while fetching confreres" });
+    sendScopeError(res, error, "An error occurred while fetching confreres");
   }
 };
 
@@ -866,7 +814,7 @@ export const updateConfrere = async (req, res) => {
         personal_mailid1: email,
         language_code,
         concurrency_val: 1,
-        updated_by: updateBy,
+        updated_by: res.locals.user?.user_id || updateBy,
         updated_date: updated_date ? new Date(updated_date) : new Date(),
         emergency_isd: maxLength(emergencyIsd || '', 5),
         emergency_contact_no: emergencyContact ? BigInt(emergencyContact) : null,
@@ -893,7 +841,7 @@ export const updateConfrere = async (req, res) => {
           personal_mailid1: email,
           personal1_contact_no: personal1 ? BigInt(personal1) : null,
           watsup1_no: watsup1_no ? BigInt(watsup1_no) : null,
-          updated_by: updateBy,
+          updated_by: res.locals.user?.user_id || updateBy,
           updated_date: updated_date ? new Date(updated_date) : new Date(),
         },
       });
@@ -1424,14 +1372,7 @@ export const saveConfrereByExcel = async (req, res) => {
       return res.status(500).json({ error: "Failed to verify token" });
     }
 
-    const provinceNameFromToken = decoded.province_name;
     const createdBy = decoded.role_name || decoded.username || 'Unknown';
-    if (!provinceNameFromToken) {
-      return res.status(400).json({ error: "Province information is missing in token" });
-    }
-
-    // Fetch province code from the database using the province name in the token
-    const { province_code } = await fetchCodeByNameOrCode(provinceNameFromToken, 'province');
 
  // Upload to Azure Blob
  const { buffer, originalname, mimetype } = req.file;
@@ -1501,15 +1442,27 @@ export const saveConfrereByExcel = async (req, res) => {
         const emergencyIsd = row['Emergency ISD'] ? String(row['Emergency ISD']) : null;
         const emergencyContact = row['Emergency Contact'] ? BigInt(row['Emergency Contact']) : null;
 
-        // Required fields check
-        if (!row['Ordination Date'] || !row['Email']) {
-          console.error('Missing required fields in row:', row);
-          failedRecords.push({ row, error: 'Missing required fields' });
+        const requiredExcelFields = [
+          'Member Type', 'First Name', 'Last Name', 'Date of Birth',
+          'First Profession Date', 'Final Profession Date', 'Ordination Date',
+          'Personal1 ISD', 'Personal1 Contact', 'Email', 'Nationality',
+        ];
+        const missingExcelFields = requiredExcelFields.filter((field) => {
+          const value = row[field];
+          return value === undefined || value === null || String(value).trim() === '';
+        });
+        if (missingExcelFields.length > 0) {
+          failedRecords.push({ row, error: `Missing required fields: ${missingExcelFields.join(', ')}` });
           continue; // Skip row
         }
 
 
-        const confrer_code = await generateConfrerCode(province_code, parseDate(row['Ordination Date']));
+        const ordinationDate = parseDate(row['Ordination Date']);
+        const province = await resolveAuthorizedProvince({
+          prisma,
+          user: decoded,
+          requestedProvince: row['Province'] || req.body.province_code || req.body.province,
+        });
         const member_type_code = await fetchCodeByNameOrCode(row['Member Type'], 'memberType');
         const bloodGroup = row['Blood Group']; // Extract blood group from row
         const blood_group_code = bloodGroup
@@ -1530,13 +1483,8 @@ export const saveConfrereByExcel = async (req, res) => {
           continue; // Skip row
         }
 
-        console.log(`Inserting confrer_code: ${confrer_code}, province_code: ${province_code}`);
-
-
         // Prepare data for Prisma create, ensuring correct data types
         const data = {
-          confrer_code: maxLength(confrer_code, 10),
-          province_code: maxLength(province_code, 10),
           member_type_code: maxLength(member_type_code, 10),
           first_name: maxLength(row['First Name'] || '', 50),
           middle_name: maxLength(row['Middle Name'] || '', 50) || null,
@@ -1546,7 +1494,7 @@ export const saveConfrereByExcel = async (req, res) => {
           confirmation_date: row['Confirmation Date'] ? parseDate(row['Confirmation Date']) : null,
           first_profession_date: row['First Profession Date'] ? parseDate(row['First Profession Date']) : null,
           final_profession_date: row['Final Profession Date'] ? parseDate(row['Final Profession Date']) : null,
-          ordination_date: row['Ordination Date'] ? parseDate(row['Ordination Date']) : null,
+          ordination_date: ordinationDate,
           personal_mailid1: maxLength(row['Email'], 255),
           personal1_isd: row['Personal1 ISD'] ? String(row['Personal1 ISD']) : null,
           personal1_contact_no: row['Personal1 Contact'] ? BigInt(row['Personal1 Contact']) : null,
@@ -1566,13 +1514,20 @@ export const saveConfrereByExcel = async (req, res) => {
           nationality_code: nationality_code ? maxLength(nationality_code, 10) : null,
           language_code: maxLength(row['Language Code'] || '', 2),
           concurrency_val: 1,
-          created_by: createdBy,
+          created_by: res.locals.user?.user_id || createdBy,
           created_date: new Date(),
         };
 
         // Save confrere data to the database
-        await prisma.confreres_dtl.create({ data });
-        successRecords.push(row);
+        const created = await createConfrereWithGeneratedCode({
+          prisma,
+          province,
+          ordinationDate,
+          data,
+          role: decoded.role_name,
+          source: 'EXCEL',
+        });
+        successRecords.push({ ...row, confrer_code: created.confrer_code });
       } catch (err) {
         console.error(`Error processing row: ${err.message}`, row);
         failedRecords.push({ row, error: err.message });

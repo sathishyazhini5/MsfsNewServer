@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../../config/index.js";
+import { provinceScopeWhere, resolveDataScope, sendScopeError } from '../../utils/dataScope.js';
 
 export const saveCommunityHouseDetails = async (req, res) => {
   const {
@@ -302,41 +303,10 @@ export const updateCommunityHouseDetails = async (req, res) => {
 
 export const getCommunityHouseDetails = async (req, res) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    let decoded;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET);
-    } catch (error) {
-      if (error.name === "TokenExpiredError") {
-        return res.status(401).json({ error: "Token has expired" });
-      }
-      if (error.name === "JsonWebTokenError") {
-        return res.status(401).json({ error: "Invalid token" });
-      }
-      return res.status(500).json({ error: "Failed to verify token" });
-    }
-
-    // Step 2: Fetch province_code from the logged-in user's province_name
-    const provinceName = decoded.province_name;
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      console.error(`Province not found for province_name: ${provinceName}`);
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-
-    const province_code = province.province_code;
+    const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code || null);
     // Fetch all records from community_house_dtl
     const communityHouses = await prisma.community_house_dtl.findMany({
-        where: { province_code: province_code }  // Filter by the logged-in user's province_code
+        where: provinceScopeWhere(provinceCodes)
       });
   
       if (!communityHouses.length) {
@@ -392,7 +362,7 @@ export const getCommunityHouseDetails = async (req, res) => {
     return res.status(200).json({ message: 'Fetched all community house details successfully', data: communityHouseWithNames });
   } catch (error) {
     console.error('Error fetching community house details:', error.message);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return sendScopeError(res, error, 'Internal Server Error');
   }
 };
 

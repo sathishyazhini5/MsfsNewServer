@@ -5,6 +5,7 @@ const prisma = new PrismaClient();
 import { JWT_SECRET } from "../../config/index.js";
 
 import jwt from "jsonwebtoken";
+import { provinceScopeWhere, resolveDataScope, sendScopeError } from '../../utils/dataScope.js';
 // Utility function to convert BigInt values to strings
 function jsonifyBigInt(obj) {
   return JSON.parse(
@@ -269,33 +270,11 @@ if (existingAdvisor) {
 
 export async function getCuriaAdvisorDetails(req, res) {
   try {
-    // Extract and verify the JWT token from the Authorization header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    // Get province_name from decoded token
-    const provinceName = decoded.province_name;
-
-    // Fetch province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-    const provinceCode = province.province_code; // Use province_code for filtering
+    const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code || null);
 
     // Fetch all curia_advisors_dtl records filtered by province_code
     const curiaAdvisors = await prisma.curia_advisors_dtl.findMany({
-      where: {
-        province_code: provinceCode, // Only get records related to the province of the logged-in user
-      },
+      where: provinceScopeWhere(provinceCodes),
     });
 
     // Iterate over each record and fetch related data from other tables
@@ -375,9 +354,7 @@ export async function getCuriaAdvisorDetails(req, res) {
     return res.status(200).json(detailedCuriaAdvisors);
   } catch (error) {
     console.error('Error fetching curia advisor details:', error);
-    return res.status(500).json({ error: 'An error occurred while fetching curia advisor details.' });
-  } finally {
-    await prisma.$disconnect();
+    return sendScopeError(res, error, 'An error occurred while fetching curia advisor details.');
   }
 }
 

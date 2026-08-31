@@ -50,6 +50,9 @@ import { confrerEnquiryRouter } from './Msfs/confrereEnquiry.js';
 import { superUserRouter } from './admin/admin.js';
 import {DashboardRouter} from './Dashboard_for_concregation/Dashboard_con.js';
 import { Rolenamerouter } from './quickcoderoutes/rolename.js';
+import { globalSearchRouter } from './globalSearch.js';
+import { notificationRouter } from './notifications.js';
+import { activityRouter } from './activities.js';
 
 
 
@@ -106,5 +109,8 @@ router.use(confrerEnquiryRouter)
 router.use(superUserRouter)
 router.use(DashboardRouter)
 router.use(Rolenamerouter)
+router.use(globalSearchRouter)
+router.use(notificationRouter)
+router.use(activityRouter)
 
 export const indexRouter = router;

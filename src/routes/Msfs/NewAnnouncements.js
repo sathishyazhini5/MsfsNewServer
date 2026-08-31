@@ -3,6 +3,7 @@ import express from 'express';
 import { saveAnnouncement,sendAnnouncementMail, getAllAnnouncements, getAnnouncementById, updateAnnouncement, deleteAnnouncement,updateNewsAnnouncement
     ,getDetailsByProvinceAndDivision,saveAnnouncementAndSendEmail
  } from '../../controllers/Msfs/NewsAnnouncement.js';
+import { authenticate } from '../../middlewares/authenticate.js';
 
 const router = express.Router();
 export const getDetailsHandler = async (req, res) => {
@@ -23,12 +24,12 @@ export const getDetailsHandler = async (req, res) => {
 };
 
 
- router.post('/saveAnnouncement',saveAnnouncementAndSendEmail);
+ router.post('/saveAnnouncement',authenticate,saveAnnouncementAndSendEmail);
  router.post('/sendAnnouncementMail',sendAnnouncementMail)
 router.get('/getAllAnnouncements', getAllAnnouncements);
 router.get('/getAnnouncement/:anouncement_id', getAnnouncementById);
-router.put('/updateAnnouncement/:anouncement_id', updateAnnouncement);
-router.put('/updateAnnouncement', updateNewsAnnouncement);
+router.put('/updateAnnouncement/:anouncement_id', authenticate, updateAnnouncement);
+router.put('/updateAnnouncement', authenticate, updateNewsAnnouncement);
 
 router.delete('/deleteAnnouncement/:anouncement_id', deleteAnnouncement);
 
