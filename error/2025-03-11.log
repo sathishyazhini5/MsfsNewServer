@@ -1,0 +1,9 @@
+2025-03-11 10:30:15 error: Error in getAppointmentTransfersByConfrerCode: Error: No appointment transfers found for this confrer code
+    at getAppointmentTransfersByConfrerCode (file:///C:/Users/DELL/Downloads/E_Status%2008%20(1)/E_Status%2008/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:895:19)
+2025-03-11 10:30:15 error: Express Error: No appointment transfers found for this confrer code
+2025-03-11 10:30:44 error: Error in getAppointmentTransfersByConfrerCode: Error: No appointment transfers found for this confrer code
+    at getAppointmentTransfersByConfrerCode (file:///C:/Users/DELL/Downloads/E_Status%2008%20(1)/E_Status%2008/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:895:19)
+2025-03-11 10:30:44 error: Express Error: No appointment transfers found for this confrer code
+2025-03-11 10:42:37 error: Error in getAppointmentTransfersByConfrerCode: Error: No appointment transfers found for this confrer code
+    at getAppointmentTransfersByConfrerCode (file:///C:/Users/DELL/Downloads/E_Status%2008%20(1)/E_Status%2008/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:895:19)
+2025-03-11 10:42:37 error: Express Error: No appointment transfers found for this confrer code

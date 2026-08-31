@@ -1,0 +1,192 @@
+2025-05-04 00:07:35 error: Express Error: sequenceCodes is not defined
+2025-05-04 00:07:35 error: Express Error: sequenceCodes is not defined
+2025-05-04 00:08:25 error: Express Error: confrer_seq_no is not defined
+2025-05-04 00:08:26 error: Express Error: confrer_seq_no is not defined
+2025-05-04 00:13:58 error: Error during login: 
+Invalid `prisma.users_mst.findFirst()` invocation:
+
+
+Can't reach database server at `saturndb.postgres.database.azure.com:5432`
+
+Please make sure your database server is running at `saturndb.postgres.database.azure.com:5432`.
+2025-05-04 00:13:58 error: Express Error: 
+Invalid `prisma.users_mst.findFirst()` invocation:
+
+
+Can't reach database server at `saturndb.postgres.database.azure.com:5432`
+
+Please make sure your database server is running at `saturndb.postgres.database.azure.com:5432`.
+2025-05-04 00:14:12 error: Express Error: confrer_seq_no is not defined
+2025-05-04 00:14:12 error: Express Error: confrer_seq_no is not defined
+2025-05-04 00:14:59 error: Express Error: 
+Invalid `prisma.centre_dtl.findMany()` invocation:
+
+
+Can't reach database server at `saturndb.postgres.database.azure.com:5432`
+
+Please make sure your database server is running at `saturndb.postgres.database.azure.com:5432`.
+2025-05-04 00:15:32 error: Express Error: confrer_seq_no is not defined
+2025-05-04 00:15:32 error: Express Error: confrer_seq_no is not defined
+2025-05-04 00:41:46 error: Express Error: 
+Invalid `prisma.centre_dtl.findMany()` invocation:
+
+
+Can't reach database server at `saturndb.postgres.database.azure.com:5432`
+
+Please make sure your database server is running at `saturndb.postgres.database.azure.com:5432`.
+2025-05-04 00:52:22 error: Express Error: 
+Invalid `prisma.centre_dtl.findMany()` invocation:
+
+{
+  where: {
+    centre_code: {
+      in: [
+        "CEN005",
+        "CEN003"
+      ]
+    }
+  },
+  select: {
+    centre_code: true,
+    centre_name: true,
+    centre_place: true,
+    address1: true,
+    address2: true,
+    city: true,
+    ~~~~
+    district: true,
+    state_code: true,
+    country_code: true,
+    pincode: true,
+?   province_code?: true,
+?   division_type_code?: true,
+?   division_code?: true,
+?   apostolate_code?: true,
+?   centre_type_code?: true,
+?   community_house_code?: true,
+?   address3?: true,
+?   city_dist?: true,
+?   pin_zipcode?: true,
+?   diocese_code?: true,
+?   phone1_isd?: true,
+?   phone1_no?: true,
+?   phone2_isd?: true,
+?   phone2_no?: true,
+?   phone3_isd?: true,
+?   phone3_no?: true,
+?   mobile1_isd?: true,
+?   mobile1_no?: true,
+?   mobile2_isd?: true,
+?   mobile2_no?: true,
+?   mobile3_isd?: true,
+?   mobile3_no?: true,
+?   watsup_isd?: true,
+?   watsup_no?: true,
+?   fax_isd?: true,
+?   fax_no?: true,
+?   office_mailid1?: true,
+?   office_mailid2?: true,
+?   office_mailid3?: true,
+?   website1?: true,
+?   website2?: true,
+?   website3?: true,
+?   language_code?: true,
+?   concurrency_val?: true,
+?   created_by?: true,
+?   created_date?: true,
+?   updated_by?: true,
+?   updated_date?: true
+  }
+}
+
+Unknown field `city` for select statement on model `centre_dtl`. Available options are marked with ?.
+2025-05-04 00:52:22 error: Express Error: 
+Invalid `prisma.centre_dtl.findMany()` invocation:
+
+{
+  where: {
+    centre_code: {
+      in: [
+        "CEN005",
+        "CEN003"
+      ]
+    }
+  },
+  select: {
+    centre_code: true,
+    centre_name: true,
+    centre_place: true,
+    address1: true,
+    address2: true,
+    city: true,
+    ~~~~
+    district: true,
+    state_code: true,
+    country_code: true,
+    pincode: true,
+?   province_code?: true,
+?   division_type_code?: true,
+?   division_code?: true,
+?   apostolate_code?: true,
+?   centre_type_code?: true,
+?   community_house_code?: true,
+?   address3?: true,
+?   city_dist?: true,
+?   pin_zipcode?: true,
+?   diocese_code?: true,
+?   phone1_isd?: true,
+?   phone1_no?: true,
+?   phone2_isd?: true,
+?   phone2_no?: true,
+?   phone3_isd?: true,
+?   phone3_no?: true,
+?   mobile1_isd?: true,
+?   mobile1_no?: true,
+?   mobile2_isd?: true,
+?   mobile2_no?: true,
+?   mobile3_isd?: true,
+?   mobile3_no?: true,
+?   watsup_isd?: true,
+?   watsup_no?: true,
+?   fax_isd?: true,
+?   fax_no?: true,
+?   office_mailid1?: true,
+?   office_mailid2?: true,
+?   office_mailid3?: true,
+?   website1?: true,
+?   website2?: true,
+?   website3?: true,
+?   language_code?: true,
+?   concurrency_val?: true,
+?   created_by?: true,
+?   created_date?: true,
+?   updated_by?: true,
+?   updated_date?: true
+  }
+}
+
+Unknown field `city` for select statement on model `centre_dtl`. Available options are marked with ?.
+2025-05-04 00:53:04 error: Express Error: confrerToCentreMap is not defined
+2025-05-04 00:53:05 error: Express Error: confrerToCentreMap is not defined
+2025-05-04 00:54:36 error: Express Error: confrerToCentreMap is not defined
+2025-05-04 00:54:36 error: Express Error: confrerToCentreMap is not defined
+2025-05-04 00:55:06 error: Express Error: confrerToCentreMap is not defined
+2025-05-04 00:55:06 error: Express Error: confrerToCentreMap is not defined
+2025-05-04 00:55:24 error: Express Error: confrerToCentreMap is not defined
+2025-05-04 00:55:24 error: Express Error: confrerToCentreMap is not defined
+2025-05-04 00:57:48 error: Express Error: confrerToCentreMap is not defined
+2025-05-04 00:57:48 error: Express Error: confrerToCentreMap is not defined
+2025-05-04 11:48:38 error: Error during login: 
+Invalid `prisma.users_mst.findFirst()` invocation:
+
+
+Can't reach database server at `saturndb.postgres.database.azure.com:5432`
+
+Please make sure your database server is running at `saturndb.postgres.database.azure.com:5432`.
+2025-05-04 11:48:38 error: Express Error: 
+Invalid `prisma.users_mst.findFirst()` invocation:
+
+
+Can't reach database server at `saturndb.postgres.database.azure.com:5432`
+
+Please make sure your database server is running at `saturndb.postgres.database.azure.com:5432`.

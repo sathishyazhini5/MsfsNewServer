@@ -1,0 +1,24 @@
+2025-03-06 01:14:47 error: Error during login: Incorrect user ID
+2025-03-06 01:14:47 error: Express Error: Incorrect user ID
+2025-03-06 01:14:48 error: Error during login: Incorrect user ID
+2025-03-06 01:14:48 error: Express Error: Incorrect user ID
+2025-03-06 01:14:48 error: Error during login: Incorrect user ID
+2025-03-06 01:14:48 error: Express Error: Incorrect user ID
+2025-03-06 01:14:48 error: Error during login: Incorrect user ID
+2025-03-06 01:14:48 error: Express Error: Incorrect user ID
+2025-03-06 01:14:54 error: Error during login: Incorrect user ID
+2025-03-06 01:14:54 error: Express Error: Incorrect user ID
+2025-03-06 10:10:24 error: uncaughtException: get is not defined
+ReferenceError: get is not defined
+    at file:///C:/Users/DELL/Downloads/E_Status%2008%20(1)/E_Status%2008/E_Status/Backend/src/routes/Msfs/headquarters.js:12:28
+    at ModuleJob.run (node:internal/modules/esm/module_job:271:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:578:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:116:5)
+2025-03-06 11:38:48 error: Unhandled Rejection:
+2025-03-06 11:38:49 error: Unhandled Rejection:
+2025-03-06 13:02:36 error: Error in getAppointmentTransfersByConfrerCode: Error: No appointment transfers found for this confrer code
+    at getAppointmentTransfersByConfrerCode (file:///C:/Users/DELL/Downloads/E_Status%2008%20(1)/E_Status%2008/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:895:19)
+2025-03-06 13:02:36 error: Express Error: No appointment transfers found for this confrer code
+2025-03-06 21:32:57 error: Error in getAppointmentTransfersByConfrerCode: Error: No appointment transfers found for this confrer code
+    at getAppointmentTransfersByConfrerCode (file:///C:/Users/DELL/Downloads/E_Status%2008%20(1)/E_Status%2008/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:895:19)
+2025-03-06 21:32:57 error: Express Error: No appointment transfers found for this confrer code

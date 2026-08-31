@@ -1,0 +1,36 @@
+2025-03-28 11:01:18 error: uncaughtException: zzz is not defined
+ReferenceError: zzz is not defined
+    at file:///C:/Users/DELL/Downloads/E_Status%2008%20(1)/E_Status%2008/E_Status/Backend/src/controllers/Msfs/scholastics.js:1501:3
+    at ModuleJob.run (node:internal/modules/esm/module_job:271:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:578:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:116:5)
+2025-03-28 11:04:22 error: uncaughtException: zzz is not defined
+ReferenceError: zzz is not defined
+    at file:///C:/Users/DELL/Downloads/E_Status%2008%20(1)/E_Status%2008/E_Status/Backend/src/controllers/Msfs/scholastics.js:1501:3
+    at ModuleJob.run (node:internal/modules/esm/module_job:271:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:578:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:116:5)
+2025-03-28 11:05:06 error: uncaughtException: zzz is not defined
+ReferenceError: zzz is not defined
+    at file:///C:/Users/DELL/Downloads/E_Status%2008%20(1)/E_Status%2008/E_Status/Backend/src/controllers/Msfs/scholastics.js:1501:3
+    at ModuleJob.run (node:internal/modules/esm/module_job:271:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:578:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:116:5)
+2025-03-28 11:05:22 error: uncaughtException: zzz is not defined
+ReferenceError: zzz is not defined
+    at file:///C:/Users/DELL/Downloads/E_Status%2008%20(1)/E_Status%2008/E_Status/Backend/src/controllers/Msfs/scholastics.js:1501:3
+    at ModuleJob.run (node:internal/modules/esm/module_job:271:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:578:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:116:5)
+2025-03-28 11:05:39 error: uncaughtException: zzz is not defined
+ReferenceError: zzz is not defined
+    at file:///C:/Users/DELL/Downloads/E_Status%2008%20(1)/E_Status%2008/E_Status/Backend/src/controllers/Msfs/scholastics.js:1501:3
+    at ModuleJob.run (node:internal/modules/esm/module_job:271:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:578:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:116:5)
+2025-03-28 12:17:18 error: uncaughtException: get is not defined
+ReferenceError: get is not defined
+    at file:///C:/Users/DELL/Downloads/E_Status%2008%20(1)/E_Status%2008/E_Status/Backend/src/routes/Msfs/scholastics_admisn%20copy.js:15:61
+    at ModuleJob.run (node:internal/modules/esm/module_job:271:25)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:578:26)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:116:5)

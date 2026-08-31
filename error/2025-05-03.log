@@ -1,0 +1,171 @@
+2025-05-03 23:45:04 error: Express Error: 
+Invalid `prisma.centre_dtl.findMany()` invocation:
+
+{
+  where: {
+    confrer_code: {
+    ~~~~~~~~~~~~
+      in: [
+        "CH2025009",
+        "CH2025006",
+        "CH2025007",
+        "CH2025003",
+        "CH2025004",
+        "CH2025008",
+        "CH2015001",
+        "CH2025005"
+      ]
+    },
+    centre_code: {
+      in: [
+        "CEN005",
+        "CEN005"
+      ]
+    },
+?   AND?: centre_dtlWhereInput | centre_dtlWhereInput[],
+?   OR?: centre_dtlWhereInput[],
+?   NOT?: centre_dtlWhereInput | centre_dtlWhereInput[],
+?   province_code?: StringFilter | String,
+?   division_type_code?: StringFilter | String,
+?   division_code?: StringFilter | String,
+?   apostolate_code?: StringNullableFilter | String | Null,
+?   centre_type_code?: StringNullableFilter | String | Null,
+?   community_house_code?: StringNullableFilter | String | Null,
+?   centre_name?: StringNullableFilter | String | Null,
+?   centre_place?: StringNullableFilter | String | Null,
+?   address1?: StringFilter | String,
+?   address2?: StringNullableFilter | String | Null,
+?   address3?: StringNullableFilter | String | Null,
+?   city_dist?: StringNullableFilter | String | Null,
+?   pin_zipcode?: IntFilter | Int,
+?   country_code?: StringFilter | String,
+?   state_code?: StringFilter | String,
+?   diocese_code?: StringFilter | String,
+?   phone1_isd?: StringFilter | String,
+?   phone1_no?: BigIntFilter | BigInt,
+?   phone2_isd?: StringNullableFilter | String | Null,
+?   phone2_no?: BigIntNullableFilter | BigInt | Null,
+?   phone3_isd?: StringNullableFilter | String | Null,
+?   phone3_no?: BigIntNullableFilter | BigInt | Null,
+?   mobile1_isd?: StringNullableFilter | String | Null,
+?   mobile1_no?: BigIntNullableFilter | BigInt | Null,
+?   mobile2_isd?: StringNullableFilter | String | Null,
+?   mobile2_no?: BigIntNullableFilter | BigInt | Null,
+?   mobile3_isd?: StringNullableFilter | String | Null,
+?   mobile3_no?: BigIntNullableFilter | BigInt | Null,
+?   watsup_isd?: StringNullableFilter | String | Null,
+?   watsup_no?: BigIntNullableFilter | BigInt | Null,
+?   fax_isd?: StringNullableFilter | String | Null,
+?   fax_no?: BigIntNullableFilter | BigInt | Null,
+?   office_mailid1?: StringFilter | String,
+?   office_mailid2?: StringNullableFilter | String | Null,
+?   office_mailid3?: StringNullableFilter | String | Null,
+?   website1?: StringNullableFilter | String | Null,
+?   website2?: StringNullableFilter | String | Null,
+?   website3?: StringNullableFilter | String | Null,
+?   language_code?: StringNullableFilter | String | Null,
+?   concurrency_val?: IntNullableFilter | Int | Null,
+?   created_by?: StringNullableFilter | String | Null,
+?   created_date?: DateTimeNullableFilter | DateTime | Null,
+?   updated_by?: StringNullableFilter | String | Null,
+?   updated_date?: DateTimeNullableFilter | DateTime | Null
+  },
+  select: {
+    centre_code: true,
+    centre_name: true,
+    centre_place: true,
+    address1: true,
+    address2: true
+  }
+}
+
+Unknown argument `confrer_code`. Did you mean `centre_code`? Available options are marked with ?.
+2025-05-03 23:45:04 error: Express Error: 
+Invalid `prisma.centre_dtl.findMany()` invocation:
+
+{
+  where: {
+    confrer_code: {
+    ~~~~~~~~~~~~
+      in: [
+        "CH2025009",
+        "CH2025006",
+        "CH2025007",
+        "CH2025003",
+        "CH2025004",
+        "CH2025008",
+        "CH2015001",
+        "CH2025005"
+      ]
+    },
+    centre_code: {
+      in: [
+        "CEN005",
+        "CEN005"
+      ]
+    },
+?   AND?: centre_dtlWhereInput | centre_dtlWhereInput[],
+?   OR?: centre_dtlWhereInput[],
+?   NOT?: centre_dtlWhereInput | centre_dtlWhereInput[],
+?   province_code?: StringFilter | String,
+?   division_type_code?: StringFilter | String,
+?   division_code?: StringFilter | String,
+?   apostolate_code?: StringNullableFilter | String | Null,
+?   centre_type_code?: StringNullableFilter | String | Null,
+?   community_house_code?: StringNullableFilter | String | Null,
+?   centre_name?: StringNullableFilter | String | Null,
+?   centre_place?: StringNullableFilter | String | Null,
+?   address1?: StringFilter | String,
+?   address2?: StringNullableFilter | String | Null,
+?   address3?: StringNullableFilter | String | Null,
+?   city_dist?: StringNullableFilter | String | Null,
+?   pin_zipcode?: IntFilter | Int,
+?   country_code?: StringFilter | String,
+?   state_code?: StringFilter | String,
+?   diocese_code?: StringFilter | String,
+?   phone1_isd?: StringFilter | String,
+?   phone1_no?: BigIntFilter | BigInt,
+?   phone2_isd?: StringNullableFilter | String | Null,
+?   phone2_no?: BigIntNullableFilter | BigInt | Null,
+?   phone3_isd?: StringNullableFilter | String | Null,
+?   phone3_no?: BigIntNullableFilter | BigInt | Null,
+?   mobile1_isd?: StringNullableFilter | String | Null,
+?   mobile1_no?: BigIntNullableFilter | BigInt | Null,
+?   mobile2_isd?: StringNullableFilter | String | Null,
+?   mobile2_no?: BigIntNullableFilter | BigInt | Null,
+?   mobile3_isd?: StringNullableFilter | String | Null,
+?   mobile3_no?: BigIntNullableFilter | BigInt | Null,
+?   watsup_isd?: StringNullableFilter | String | Null,
+?   watsup_no?: BigIntNullableFilter | BigInt | Null,
+?   fax_isd?: StringNullableFilter | String | Null,
+?   fax_no?: BigIntNullableFilter | BigInt | Null,
+?   office_mailid1?: StringFilter | String,
+?   office_mailid2?: StringNullableFilter | String | Null,
+?   office_mailid3?: StringNullableFilter | String | Null,
+?   website1?: StringNullableFilter | String | Null,
+?   website2?: StringNullableFilter | String | Null,
+?   website3?: StringNullableFilter | String | Null,
+?   language_code?: StringNullableFilter | String | Null,
+?   concurrency_val?: IntNullableFilter | Int | Null,
+?   created_by?: StringNullableFilter | String | Null,
+?   created_date?: DateTimeNullableFilter | DateTime | Null,
+?   updated_by?: StringNullableFilter | String | Null,
+?   updated_date?: DateTimeNullableFilter | DateTime | Null
+  },
+  select: {
+    centre_code: true,
+    centre_name: true,
+    centre_place: true,
+    address1: true,
+    address2: true
+  }
+}
+
+Unknown argument `confrer_code`. Did you mean `centre_code`? Available options are marked with ?.
+2025-05-03 23:52:26 error: Express Error: 
+Invalid `prisma.confreres_dtl.findMany()` invocation:
+
+
+Can't reach database server at `saturndb.postgres.database.azure.com:5432`
+
+Please make sure your database server is running at `saturndb.postgres.database.azure.com:5432`.

@@ -1,0 +1,28 @@
+2025-05-12 00:25:55 error: Error in getAppointmentTransfersByConfrerCode: Error: No appointment transfers found for this confrer code
+    at getAppointmentTransfersByConfrerCode (file:///D:/deploy/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:895:19)
+2025-05-12 00:25:55 error: Express Error: No appointment transfers found for this confrer code
+2025-05-12 00:27:06 error: Error in getAppointmentTransfersByConfrerCode: Error: No appointment transfers found for this confrer code
+    at getAppointmentTransfersByConfrerCode (file:///D:/deploy/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:895:19)
+2025-05-12 00:27:06 error: Express Error: No appointment transfers found for this confrer code
+2025-05-12 10:19:40 error: Error in getAppointmentTransfersByConfrerCode: Error: No appointment transfers found for this confrer code
+    at getAppointmentTransfersByConfrerCode (file:///D:/deploy/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:895:19)
+2025-05-12 10:19:40 error: Express Error: No appointment transfers found for this confrer code
+2025-05-12 11:20:54 error: Error in getAppointmentTransfersByConfrerCode: Error: No appointment transfers found for this confrer code
+    at getAppointmentTransfersByConfrerCode (file:///D:/deploy/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:895:19)
+2025-05-12 11:20:54 error: Express Error: No appointment transfers found for this confrer code
+2025-05-12 11:21:53 error: Error in getAppointmentTransfersByConfrerCode: Error: No appointment transfers found for this confrer code
+    at getAppointmentTransfersByConfrerCode (file:///D:/deploy/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:895:19)
+2025-05-12 11:21:53 error: Express Error: No appointment transfers found for this confrer code
+2025-05-12 12:57:49 error: Error in getAppointmentTransfersByConfrerCode: Error: No appointment transfers found for this confrer code
+    at getAppointmentTransfersByConfrerCode (file:///D:/deploy/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:895:19)
+2025-05-12 12:57:49 error: Express Error: No appointment transfers found for this confrer code
+2025-05-12 20:35:32 error: Express Error: typeCodes is not defined
+2025-05-12 20:43:25 error: Express Error: typeCodes is not defined
+2025-05-12 21:38:42 error: Express Error: Cannot access 'appointFilters' before initialization
+2025-05-12 21:51:05 error: Express Error: 
+Invalid `prisma.quickcode_mst.findMany()` invocation:
+
+
+Can't reach database server at `saturndb.postgres.database.azure.com:5432`
+
+Please make sure your database server is running at `saturndb.postgres.database.azure.com:5432`.

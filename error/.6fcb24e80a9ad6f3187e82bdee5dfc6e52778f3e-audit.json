@@ -1,0 +1,30 @@
+{
+    "keep": {
+        "days": false,
+        "amount": 30
+    },
+    "auditLog": "C:\\Users\\admin\\Downloads\\E_Status 08 (1)\\E_Status 08\\E_Status\\Backend\\error\\.6fcb24e80a9ad6f3187e82bdee5dfc6e52778f3e-audit.json",
+    "files": [
+        {
+            "date": 1739016106279,
+            "name": "C:\\Users\\admin\\Downloads\\E_Status 08 (1)\\E_Status 08\\E_Status\\Backend\\error\\2025-02-08.log",
+            "hash": "40d4ab5a9a0c8cb4242e3668567f6f4b61d91c38bac79ea6b041729dc723a8c3"
+        },
+        {
+            "date": 1739163465377,
+            "name": "C:\\Users\\admin\\Downloads\\E_Status 08 (1)\\E_Status 08\\E_Status\\Backend\\error\\2025-02-10.log",
+            "hash": "903e8b28469cea6d4ec7bb60130b1522b2ad42545149bf2d345fa9b0aeeafb18"
+        },
+        {
+            "date": 1739253943695,
+            "name": "C:\\Users\\admin\\Downloads\\E_Status 08 (1)\\E_Status 08\\E_Status\\Backend\\error\\2025-02-11.log",
+            "hash": "279b8c6ea6a90f58d5d771a7867449f7446df124d8fe96b10feedc323a49b544"
+        },
+        {
+            "date": 1739428344119,
+            "name": "C:\\Users\\admin\\Downloads\\E_Status 08 (1)\\E_Status 08\\E_Status\\Backend\\error\\2025-02-13.log",
+            "hash": "d9365e37f82b853af14c742d8abbbce164165250400c5674f68fc0f4f5b487e7"
+        }
+    ],
+    "hashType": "sha256"
+}

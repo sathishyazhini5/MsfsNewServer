@@ -1,0 +1,114 @@
+2025-05-19 12:15:08 error: Error in getAppointmentTransfersByConfrerCode: Error: No appointment transfers found for this confrer code
+    at getAppointmentTransfersByConfrerCode (file:///D:/deploy/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:895:19)
+2025-05-19 12:15:08 error: Express Error: No appointment transfers found for this confrer code
+2025-05-19 12:33:34 error: Error in getAppointmentTransfersByConfrerCode: Error: No appointment transfers found for this confrer code
+    at getAppointmentTransfersByConfrerCode (file:///D:/deploy/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:895:19)
+2025-05-19 12:33:34 error: Express Error: No appointment transfers found for this confrer code
+2025-05-19 13:42:37 error: Error during login: Incorrect password
+2025-05-19 13:42:37 error: Express Error: Incorrect password
+2025-05-19 13:43:06 error: Error during login: Incorrect password
+2025-05-19 13:43:06 error: Express Error: Incorrect password
+2025-05-19 13:43:36 error: Error during login: Incorrect password
+2025-05-19 13:43:36 error: Express Error: Incorrect password
+2025-05-19 13:44:31 error: Error during login: Incorrect password
+2025-05-19 13:44:31 error: Express Error: Incorrect password
+2025-05-19 13:44:58 error: Error during login: Incorrect password
+2025-05-19 13:44:58 error: Express Error: Incorrect password
+2025-05-19 13:47:27 error: Error during login: Incorrect password
+2025-05-19 13:47:27 error: Express Error: Incorrect password
+2025-05-19 13:57:57 error: Error during login: Incorrect password
+2025-05-19 13:57:57 error: Express Error: Incorrect password
+2025-05-19 13:58:13 error: Error during login: Incorrect password
+2025-05-19 13:58:13 error: Express Error: Incorrect password
+2025-05-19 13:58:44 error: Error during login: Incorrect password
+2025-05-19 13:58:44 error: Express Error: Incorrect password
+2025-05-19 14:12:29 error: Error in forgotPassword: 
+Invalid `prisma.users_mst.findFirst()` invocation:
+
+{
+  where: {
+    user_id: "sathish@gmail.com"
+  },
+  include: {
+    role: {
+    ~~~~
+      select: {
+        quickcode_name: true,
+        quick_code_type: true
+      }
+    },
+?   user_role_com_activity_mst?: true
+  }
+}
+
+Unknown field `role` for include statement on model `users_mst`. Available options are marked with ?.
+2025-05-19 14:45:16 error: Error in forgotPassword: 
+Invalid `prisma.users_mst.findFirst()` invocation:
+
+{
+  where: {
+    user_id: "sathish@gmail.com"
+  },
+  include: {
+    role: {
+    ~~~~
+      select: {
+        quickcode_name: true,
+        quick_code_type: true
+      }
+    },
+?   user_role_com_activity_mst?: true
+  }
+}
+
+Unknown field `role` for include statement on model `users_mst`. Available options are marked with ?.
+2025-05-19 14:46:48 error: Error in forgotPassword: 
+Invalid `prisma.users_mst.findFirst()` invocation:
+
+{
+  where: {
+    user_id: "sathish@gmail.com"
+  },
+  include: {
+    role: {
+    ~~~~
+      select: {
+        quickcode_name: true,
+        quick_code_type: true
+      }
+    },
+?   user_role_com_activity_mst?: true
+  }
+}
+
+Unknown field `role` for include statement on model `users_mst`. Available options are marked with ?.
+2025-05-19 14:54:04 error: Error during login: Incorrect password
+2025-05-19 14:54:04 error: Express Error: Incorrect password
+2025-05-19 15:44:13 error: Error during login: Incorrect password
+2025-05-19 15:44:13 error: Express Error: Incorrect password
+2025-05-19 16:48:42 error: Error during login: Incorrect password
+2025-05-19 16:48:42 error: Express Error: Incorrect password
+2025-05-19 19:56:48 error: Error during login: Incorrect password
+2025-05-19 19:56:48 error: Express Error: Incorrect password
+2025-05-19 20:46:08 error: Error during login: Incorrect password
+2025-05-19 20:46:08 error: Express Error: Incorrect password
+2025-05-19 20:59:11 error: Error during login: Incorrect password
+2025-05-19 20:59:11 error: Express Error: Incorrect password
+2025-05-19 21:16:51 error: Error during login: Incorrect password
+2025-05-19 21:16:51 error: Express Error: Incorrect password
+2025-05-19 23:01:05 error: Express Error: Failed to fetch dropdown options for logged-in user
+2025-05-19 23:01:06 error: Express Error: Failed to fetch dropdown options for logged-in user
+2025-05-19 23:04:36 error: Express Error: Failed to fetch anniversary data.
+2025-05-19 23:10:23 error: Error fetching component activities:
+2025-05-19 23:10:23 error: Express Error: Failed to fetch dropdown options for logged-in user
+2025-05-19 23:10:23 error: Express Error: Failed to fetch component activities
+2025-05-19 23:10:59 error: ❌ Server Error in defineUserTypeToComponentActivity: 
+Invalid `prisma.quickcode_mst.findUnique()` invocation:
+
+
+Can't reach database server at `saturndb.postgres.database.azure.com:5432`
+
+Please make sure your database server is running at `saturndb.postgres.database.azure.com:5432`.
+2025-05-19 23:35:30 error: Error fetching component activities:
+2025-05-19 23:35:30 error: Express Error: Failed to fetch dropdown options for logged-in user
+2025-05-19 23:35:30 error: Express Error: Failed to fetch component activities

@@ -1,0 +1,40 @@
+{
+    "keep": {
+        "days": false,
+        "amount": 30
+    },
+    "auditLog": "D:\\deploy\\E_status_deploy\\Backend\\error\\.a709c9f868d51d08aca14c93dc0462d35bd4c319-audit.json",
+    "files": [
+        {
+            "date": 1757613631715,
+            "name": "D:\\deploy\\E_status_deploy\\Backend\\error\\2025-09-11.log",
+            "hash": "bf0572aba45df2732e961abd8a1e5bf03a553aa8dc73e4c226d54367f87e851b"
+        },
+        {
+            "date": 1758087717947,
+            "name": "D:\\deploy\\E_status_deploy\\Backend\\error\\2025-09-17.log",
+            "hash": "d410ba7c329aaa8c8927f7bd0c285b7371dbf5a328c68604d68a1584eae2649c"
+        },
+        {
+            "date": 1761715686855,
+            "name": "D:\\deploy\\E_status_deploy\\Backend\\error\\2025-10-29.log",
+            "hash": "56d3e00c79aea48fc77462e6c5a372037a3653cd5446fd2e45bd0ef5aa9229a4"
+        },
+        {
+            "date": 1763639122928,
+            "name": "D:\\deploy\\E_status_deploy\\Backend\\error\\2025-11-20.log",
+            "hash": "6b66c58665534cb98792d42ba20309d21fc8d3d35f23195f681cb219bfdfb820"
+        },
+        {
+            "date": 1764050747834,
+            "name": "D:\\deploy\\E_status_deploy\\Backend\\error\\2025-11-25.log",
+            "hash": "75e61b4e3d4eb3ae6e29424ec59925f85d50ef9a5eeae0dd1ca8136ee8c4be20"
+        },
+        {
+            "date": 1778560405736,
+            "name": "D:\\deploy\\E_status_deploy\\Backend\\error\\2026-05-12.log",
+            "hash": "e495f5ce5f08bb9236597554efb3c56943c6aac5fd3624db06f0c39e029732ea"
+        }
+    ],
+    "hashType": "sha256"
+}

@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": false,
+        "amount": 30
+    },
+    "auditLog": "C:\\Users\\admin\\Downloads\\E_Status 08.02\\E_Status\\Backend\\debug\\.57023efe819c91a63e268f6afa9b4e9e860a74c4-audit.json",
+    "files": [
+        {
+            "date": 1738987318493,
+            "name": "C:\\Users\\admin\\Downloads\\E_Status 08.02\\E_Status\\Backend\\debug\\2025-02-08.log",
+            "hash": "b35d021eb2578bebf25c6cc349cf9e68a781af2beb135f6bbbac9c4f7d8c60b1"
+        }
+    ],
+    "hashType": "sha256"
+}

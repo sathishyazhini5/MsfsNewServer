@@ -1,0 +1,49 @@
+2025-04-17 10:17:20 error: Error in getAppointmentTransfers: TokenExpiredError: jwt expired
+    at E:\stephen desales technology\E_Status\Backend\node_modules\jsonwebtoken\verify.js:190:21
+    at getSecret (E:\stephen desales technology\E_Status\Backend\node_modules\jsonwebtoken\verify.js:97:14)
+    at module.exports [as verify] (E:\stephen desales technology\E_Status\Backend\node_modules\jsonwebtoken\verify.js:101:10)
+    at getAppointmentTransfers (file:///E:/stephen%20desales%20technology/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:1369:33)
+    at Layer.handle [as handle_request] (E:\stephen desales technology\E_Status\Backend\node_modules\express\lib\router\layer.js:95:5)
+    at next (E:\stephen desales technology\E_Status\Backend\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (E:\stephen desales technology\E_Status\Backend\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (E:\stephen desales technology\E_Status\Backend\node_modules\express\lib\router\layer.js:95:5)
+    at E:\stephen desales technology\E_Status\Backend\node_modules\express\lib\router\index.js:284:15
+    at Function.process_params (E:\stephen desales technology\E_Status\Backend\node_modules\express\lib\router\index.js:346:12)
+2025-04-17 10:17:20 error: Express Error: jwt expired
+2025-04-17 10:17:20 error: Error in getAppointmentTransfers: TokenExpiredError: jwt expired
+    at E:\stephen desales technology\E_Status\Backend\node_modules\jsonwebtoken\verify.js:190:21
+    at getSecret (E:\stephen desales technology\E_Status\Backend\node_modules\jsonwebtoken\verify.js:97:14)
+    at module.exports [as verify] (E:\stephen desales technology\E_Status\Backend\node_modules\jsonwebtoken\verify.js:101:10)
+    at getAppointmentTransfers (file:///E:/stephen%20desales%20technology/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:1369:33)
+    at Layer.handle [as handle_request] (E:\stephen desales technology\E_Status\Backend\node_modules\express\lib\router\layer.js:95:5)
+    at next (E:\stephen desales technology\E_Status\Backend\node_modules\express\lib\router\route.js:149:13)
+    at Route.dispatch (E:\stephen desales technology\E_Status\Backend\node_modules\express\lib\router\route.js:119:3)
+    at Layer.handle [as handle_request] (E:\stephen desales technology\E_Status\Backend\node_modules\express\lib\router\layer.js:95:5)
+    at E:\stephen desales technology\E_Status\Backend\node_modules\express\lib\router\index.js:284:15
+    at Function.process_params (E:\stephen desales technology\E_Status\Backend\node_modules\express\lib\router\index.js:346:12)
+2025-04-17 10:17:20 error: Express Error: jwt expired
+2025-04-17 11:19:20 error: uncaughtException: multer is not defined
+ReferenceError: multer is not defined
+    at file:///E:/stephen%20desales%20technology/E_Status/Backend/src/routes/Msfs/Confreres.js:5:21
+    at ModuleJob.run (node:internal/modules/esm/module_job:218:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:329:24)
+    at async loadESM (node:internal/process/esm_loader:34:7)
+    at async handleMainPromise (node:internal/modules/run_main:113:12)
+2025-04-17 11:21:11 error: uncaughtException: Cannot read properties of undefined (reading 'startsWith')
+TypeError: Cannot read properties of undefined (reading 'startsWith')
+    at extractConnectionStringParts (E:\stephen desales technology\E_Status\Backend\node_modules\@azure\storage-blob\dist\index.js:400:26)
+    at BlobServiceClient.fromConnectionString (E:\stephen desales technology\E_Status\Backend\node_modules\@azure\storage-blob\dist\index.js:24264:32)
+    at file:///E:/stephen%20desales%20technology/E_Status/Backend/src/middlewares/azureBlob.js:10:45
+    at ModuleJob.run (node:internal/modules/esm/module_job:218:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:329:24)
+    at async loadESM (node:internal/process/esm_loader:34:7)
+    at async handleMainPromise (node:internal/modules/run_main:113:12)
+2025-04-17 11:21:30 error: uncaughtException: multer is not defined
+ReferenceError: multer is not defined
+    at file:///E:/stephen%20desales%20technology/E_Status/Backend/src/routes/Msfs/Confreres.js:5:21
+    at ModuleJob.run (node:internal/modules/esm/module_job:218:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:329:24)
+    at async loadESM (node:internal/process/esm_loader:34:7)
+    at async handleMainPromise (node:internal/modules/run_main:113:12)
+2025-04-17 11:30:32 error: Express Error: Unexpected field
+2025-04-17 11:35:20 error: Express Error: Unexpected field

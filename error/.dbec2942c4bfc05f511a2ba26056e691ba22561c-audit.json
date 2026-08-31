@@ -1,0 +1,30 @@
+{
+    "keep": {
+        "days": false,
+        "amount": 30
+    },
+    "auditLog": "C:\\Users\\HP\\Downloads\\E_status_deploy_final\\E_status_deploy\\Backend\\error\\.dbec2942c4bfc05f511a2ba26056e691ba22561c-audit.json",
+    "files": [
+        {
+            "date": 1785996223113,
+            "name": "C:\\Users\\HP\\Downloads\\E_status_deploy_final\\E_status_deploy\\Backend\\error\\2026-08-06.log",
+            "hash": "440cdceacc18618a46224b2766b8020e7eecbd6e5303b4416c170887aa28f35c"
+        },
+        {
+            "date": 1786343775594,
+            "name": "C:\\Users\\HP\\Downloads\\E_status_deploy_final\\E_status_deploy\\Backend\\error\\2026-08-10.log",
+            "hash": "e8c5ff370f3310a7e7ce0bb1ab8facb482c61ca5c6e4b66029ba2c738344ef42"
+        },
+        {
+            "date": 1786418993715,
+            "name": "C:\\Users\\HP\\Downloads\\E_status_deploy_final\\E_status_deploy\\Backend\\error\\2026-08-11.log",
+            "hash": "2f48fc1adf0e258c2e5b0a1c724bc54137c4ba4021896e4f39416e9f99b676d4"
+        },
+        {
+            "date": 1786510380098,
+            "name": "C:\\Users\\HP\\Downloads\\E_status_deploy_final\\E_status_deploy\\Backend\\error\\2026-08-12.log",
+            "hash": "713cb852918bde50142dfacaa29a8f8372caa2132acc756afd2f1cf3a7067daa"
+        }
+    ],
+    "hashType": "sha256"
+}

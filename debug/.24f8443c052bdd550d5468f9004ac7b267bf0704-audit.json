@@ -1,0 +1,40 @@
+{
+    "keep": {
+        "days": false,
+        "amount": 30
+    },
+    "auditLog": "D:\\deploy\\E_status_deploy\\Backend\\debug\\.24f8443c052bdd550d5468f9004ac7b267bf0704-audit.json",
+    "files": [
+        {
+            "date": 1757613631710,
+            "name": "D:\\deploy\\E_status_deploy\\Backend\\debug\\2025-09-11.log",
+            "hash": "3f044e6fef5ae82c5ea1bea70c1915569dca49137dfc4ccf86b91dd035dffbe8"
+        },
+        {
+            "date": 1758087717942,
+            "name": "D:\\deploy\\E_status_deploy\\Backend\\debug\\2025-09-17.log",
+            "hash": "110357ab265c0d28d538df8b94aeee2556a0c4b989304acb8567d3451a9c360e"
+        },
+        {
+            "date": 1761715686849,
+            "name": "D:\\deploy\\E_status_deploy\\Backend\\debug\\2025-10-29.log",
+            "hash": "77aad5f112f6cd284aad15ff6403b87448075999158f7ea3bbffa4c750804ace"
+        },
+        {
+            "date": 1763639122917,
+            "name": "D:\\deploy\\E_status_deploy\\Backend\\debug\\2025-11-20.log",
+            "hash": "68ca64ff931c1f517b1e80531ed4bbe995601de76b8d99c9e4f1781a12781b2f"
+        },
+        {
+            "date": 1764050747819,
+            "name": "D:\\deploy\\E_status_deploy\\Backend\\debug\\2025-11-25.log",
+            "hash": "e91031350580a99160c7b489b197eba8e663d5534898273442ac15712738904a"
+        },
+        {
+            "date": 1778560405727,
+            "name": "D:\\deploy\\E_status_deploy\\Backend\\debug\\2026-05-12.log",
+            "hash": "782ff9b792ee641ed8741cf2f4f8288c54ecb2aae381b951c39eca7a88be30f4"
+        }
+    ],
+    "hashType": "sha256"
+}

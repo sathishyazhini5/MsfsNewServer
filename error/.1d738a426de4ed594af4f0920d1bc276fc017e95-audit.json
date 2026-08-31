@@ -1,0 +1,35 @@
+{
+    "keep": {
+        "days": false,
+        "amount": 30
+    },
+    "auditLog": "E:\\stephen desales technology\\E_Status\\Backend\\error\\.1d738a426de4ed594af4f0920d1bc276fc017e95-audit.json",
+    "files": [
+        {
+            "date": 1744265224524,
+            "name": "E:\\stephen desales technology\\E_Status\\Backend\\error\\2025-04-10.log",
+            "hash": "71ed5d4d46151d18d3dd4b9de3756ad820fbd38656dab6432d5721b47971b5c6"
+        },
+        {
+            "date": 1744692920631,
+            "name": "E:\\stephen desales technology\\E_Status\\Backend\\error\\2025-04-15.log",
+            "hash": "37dde971f9da27483137b8f84cad78d1dcdfa9d1e81cc8aa6ca6421cbbdd62eb"
+        },
+        {
+            "date": 1744779315532,
+            "name": "E:\\stephen desales technology\\E_Status\\Backend\\error\\2025-04-16.log",
+            "hash": "fe4b7a180945a92b612e152e2fe64e613d169bfda4fcb22ea13a3043d1d30629"
+        },
+        {
+            "date": 1744865240073,
+            "name": "E:\\stephen desales technology\\E_Status\\Backend\\error\\2025-04-17.log",
+            "hash": "5ea91c7588337244f07cb8e76c135d9113c6e970340ce6b0d80b0cbe923afe8e"
+        },
+        {
+            "date": 1744967008036,
+            "name": "E:\\stephen desales technology\\E_Status\\Backend\\error\\2025-04-18.log",
+            "hash": "b379d21a1f3aff15126f1c19f41cd55b250e971f39aff58312df49e71a3b7dd4"
+        }
+    ],
+    "hashType": "sha256"
+}
