@@ -242,80 +242,55 @@ const prisma = new PrismaClient();
 export const createQuickCode = async (req, res) => {
   const { quick_code_type, language_code, quickcode_name } = req.body;
 
-  // List of allowed quick_code_type values
   const allowedQuickCodeTypes = [
     'bldgrp', 'natlty', 'deptyp', 'schtyp', 'destyp', 'lancod', 'apostl',
     'ctrtyp', 'divtyp', 'usrtyp', 'memtyp', 'pcicof', 'mandat', 'fortyp',
-    'promto', 'yrform', 'anityp', 'diocse', 'fedtyp', 'rolnam','datefmt'
+    'promto', 'yrform', 'anityp', 'diocse', 'fedtyp', 'rolnam', 'datefmt'
   ];
 
-  // Validate quick_code_type
   if (!allowedQuickCodeTypes.includes(quick_code_type)) {
     return res.status(400).json({ error: 'Invalid quick_code_type' });
   }
 
   try {
-    // Extract token from headers
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Access token is missing or invalid' });
     }
-    const token = authHeader.split(" ")[1];
 
-    // Verify and decode the token
+    const token = authHeader.split(' ')[1];
     let decoded;
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (error) {
-      if (error.name === "TokenExpiredError") {
-        return res.status(401).json({ error: "Token has expired" });
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'Token has expired' });
       }
-      if (error.name === "JsonWebTokenError") {
-        return res.status(401).json({ error: "Invalid token" });
+      if (error.name === 'JsonWebTokenError') {
+        return res.status(401).json({ error: 'Invalid token' });
       }
-      return res.status(500).json({ error: "Failed to verify token" });
+      return res.status(500).json({ error: 'Failed to verify token' });
     }
 
-    // Extract province_name and created_by from the token
-    const provinceName = decoded.province_name;
     const createdBy = decoded.role_name || decoded.username || 'Unknown';
 
-    // Find the corresponding province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-    const provinceCode = province.province_code;
-
-    // Normalize quickcode_name for duplicate check (trim and convert to lowercase)
-    // const normalizedQuickcodeName = quickcode_name.trim().toLowerCase();
-
-    // Check for duplicate quickcode_name within the same quick_code_type and province_code
     const duplicateEntry = await prisma.quickcode_mst.findFirst({
       where: {
         quick_code_type,
-        province_code: provinceCode,
         quickcode_name: {
           equals: quickcode_name,
-          mode: "insensitive",
+          mode: 'insensitive',
         },
       },
     });
 
     if (duplicateEntry) {
       return res.status(400).json({
-        error: `Name '${quickcode_name}' already exists for the type '${quick_code_type}' in the province '${provinceName}'.`,
+        error: `Quick Code already exists for this Quick Code Type.`,
       });
     }
 
-    // Generate a prefix dynamically based on the quick_code_type
-    const prefix = quick_code_type.slice(0, 3).toLowerCase(); // Take the first 3 letters of the quick_code_type
-
-    // Generate a new quick code
+    const prefix = quick_code_type.slice(0, 3).toLowerCase();
     const existingCodes = await prisma.quickcode_mst.findMany({
       where: { quick_code_type },
       orderBy: { quick_code: 'desc' },
@@ -325,14 +300,12 @@ export const createQuickCode = async (req, res) => {
     let newQuickCode = `${prefix}001`;
     if (existingCodes.length > 0) {
       const lastCode = existingCodes[0].quick_code;
-      const lastCodeNumber = parseInt(lastCode.slice(3)) + 1; // Increment the numeric part
+      const lastCodeNumber = parseInt(lastCode.slice(3)) + 1;
       newQuickCode = `${prefix}${String(lastCodeNumber).padStart(3, '0')}`;
     }
 
-    // Create new quick code entry with province_code, created_by, and normalized quickcode_name
     const newQuickCodeEntry = await prisma.quickcode_mst.create({
       data: {
-        province_code: provinceCode,
         quick_code_type,
         quick_code: newQuickCode,
         language_code,
@@ -356,66 +329,46 @@ export const createQuickCode = async (req, res) => {
 export const getQuickCodeNames = async (req, res) => {
   const { quick_code_type } = req.query;
 
-  // List of allowed quick_code_type values
   const allowedQuickCodeTypes = [
     'bldgrp', 'natlty', 'deptyp', 'schtyp', 'destyp', 'lancod', 'apostl',
     'ctrtyp', 'divtyp', 'usrtyp', 'memtyp', 'pcicof', 'mandat', 'fortyp',
-    'promto', 'yrform', 'anityp', 'diocse', 'fedtyp','datefmt'
+    'promto', 'yrform', 'anityp', 'diocse', 'fedtyp', 'datefmt'
   ];
 
   try {
-    // Ensure token is present
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(StatusCodes.UNAUTHORIZED).json({ error: "Access token is missing or invalid" });
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(StatusCodes.UNAUTHORIZED).json({ error: 'Access token is missing or invalid' });
     }
-    const token = authHeader.split(" ")[1];
 
-    // Verify and decode the token
-    let decoded;
+    const token = authHeader.split(' ')[1];
     try {
-      decoded = jwt.verify(token, JWT_SECRET);
+      jwt.verify(token, JWT_SECRET);
     } catch (error) {
-      if (error.name === "TokenExpiredError") {
-        return res.status(StatusCodes.UNAUTHORIZED).json({ error: "Token has expired" });
+      if (error.name === 'TokenExpiredError') {
+        return res.status(StatusCodes.UNAUTHORIZED).json({ error: 'Token has expired' });
       }
-      if (error.name === "JsonWebTokenError") {
-        return res.status(StatusCodes.UNAUTHORIZED).json({ error: "Invalid token" });
+      if (error.name === 'JsonWebTokenError') {
+        return res.status(StatusCodes.UNAUTHORIZED).json({ error: 'Invalid token' });
       }
-      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: "Failed to verify token" });
+      return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ error: 'Failed to verify token' });
     }
 
-    // Extract province_code and province_name from the decoded token
-    const provinceName = decoded.province_name;
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(StatusCodes.NOT_FOUND).json({ error: "Province not found for the logged-in user" });
-    }
-    const provinceCode = province.province_code;
-
-    // Validate quick_code_type
     if (quick_code_type && !allowedQuickCodeTypes.includes(quick_code_type)) {
       return res.status(400).json({ error: 'Invalid quick_code_type' });
     }
 
-    // Fetch quick codes filtered by quick_code_type and province_code
     const quickCodeNames = await prisma.quickcode_mst.findMany({
       where: {
-        quick_code_type: quick_code_type || undefined, // Optional filtering by quick_code_type
-        province_code: provinceCode,
+        quick_code_type: quick_code_type || undefined,
       },
       select: {
         quickcode_name: true,
         quick_code: true,
         quick_code_type: true,
-        province_code: true,
       },
       orderBy: {
-        quickcode_name: "asc", // Change this if another field defines the order
+        quickcode_name: 'asc',
       },
     });
 
@@ -641,21 +594,16 @@ export const getQuickCodeNames = async (req, res) => {
 export const updateQuickCode = async (req, res) => {
   const { quick_code_type, quick_code, quickcode_name } = req.body;
 
-  console.log('Request Body:', req.body);
-
-  // Validate required fields
   if (!quick_code_type || !quick_code || !quickcode_name) {
-    console.error('Missing required fields', { quick_code_type, quick_code, quickcode_name });
     return res.status(400).json({ error: 'Missing required fields' });
   }
 
-  // Extract and verify token for user information
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Access token is missing or invalid' });
   }
-  const token = authHeader.split(' ')[1];
 
+  const token = authHeader.split(' ')[1];
   let decoded;
   try {
     decoded = jwt.verify(token, process.env.JWT_SECRET);
@@ -663,40 +611,23 @@ export const updateQuickCode = async (req, res) => {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 
-  // Extract the user's province code and identity
-  const provinceName = decoded.province_name;
   const updatedBy = decoded.role_name || decoded.username || 'Unknown';
 
-  const province = await prisma.province_mst.findFirst({
-    where: { province_name: provinceName },
-    select: { province_code: true },
-  });
-
-  if (!province) {
-    return res.status(404).json({ error: 'Province not found for the logged-in user' });
-  }
-  const provinceCode = province.province_code;
-
   try {
-    // Check if the quick code exists for the current province
     const existingQuickCode = await prisma.quickcode_mst.findFirst({
       where: {
         quick_code_type,
         quick_code,
-        province_code: provinceCode,
       },
     });
 
     if (!existingQuickCode) {
-      console.error('Quick code not found', { quick_code_type, quick_code, provinceCode });
-      return res.status(404).json({ error: 'Quick code not found in the user’s province' });
+      return res.status(404).json({ error: 'Quick code not found' });
     }
 
-    // Check for duplicate quickcode_name within the same quick_code_type and province
     const duplicateQuickCode = await prisma.quickcode_mst.findFirst({
       where: {
         quick_code_type,
-        province_code: provinceCode,
         quickcode_name: {
           equals: quickcode_name,
           mode: 'insensitive',
@@ -706,16 +637,15 @@ export const updateQuickCode = async (req, res) => {
     });
 
     if (duplicateQuickCode) {
-      console.error('Duplicate quickcode_name for the provided quick_code_type and province', { quick_code_type, quickcode_name });
-      return res.status(400).json({ error: 'Quickcode name already exists in the province' });
+      return res.status(400).json({ error: 'Quick Code already exists for this Quick Code Type.' });
     }
 
-    // Update the quickcode_name
-    const updatedQuickCodeEntry = await prisma.quickcode_mst.updateMany({
+    const updatedQuickCodeEntry = await prisma.quickcode_mst.update({
       where: {
-        quick_code_type,
-        quick_code,
-        province_code: provinceCode,
+        quick_code_type_quick_code: {
+          quick_code_type,
+          quick_code,
+        },
       },
       data: {
         quickcode_name,
@@ -724,11 +654,7 @@ export const updateQuickCode = async (req, res) => {
       },
     });
 
-    if (updatedQuickCodeEntry.count === 0) {
-      return res.status(404).json({ error: 'No matching quick code found for update.' });
-    }
-
-    res.json({ message: 'Quick code updated successfully.' });
+    res.json(updatedQuickCodeEntry);
   } catch (error) {
     console.error('Error updating quick code:', error.message);
     return res.status(500).json({ error: 'Failed to update quick code.' });
@@ -824,7 +750,6 @@ export const deleteQuickCode = async (req, res) => {
   const { quick_code_type, quick_code } = req.body;
 
   try {
-    // Check if the entry exists
     const existingEntry = await prisma.quickcode_mst.findUnique({
       where: {
         quick_code_type_quick_code: {
@@ -838,7 +763,6 @@ export const deleteQuickCode = async (req, res) => {
       return res.status(404).json({ error: 'Quick code entry not found' });
     }
 
-    // Dependency checks with logging for each table
     const dependencies = await Promise.allSettled([
       prisma.centre_dtl.findFirst({ where: { centre_type_code: quick_code } }),
       prisma.apostolates_mst.findFirst({ where: { centre_type_code: quick_code } }),
@@ -894,13 +818,12 @@ export const deleteQuickCode = async (req, res) => {
       ][index]);
 
     if (foundDependencies.length > 0) {
-      console.info(`Dependency found for quick_code: ${quick_code} in the following tables: ${foundDependencies.join(", ")}`);
+      console.info(`Dependency found for quick_code: ${quick_code} in the following tables: ${foundDependencies.join(', ')}`);
       return res.status(400).json({
-        error: `Cannot delete: Quick code is referenced in other tables (${foundDependencies.join(", ")}).`,
+        error: `Cannot delete: Quick code is referenced in other tables (${foundDependencies.join(', ')}).`,
       });
     }
 
-    // Delete the quickcode
     await prisma.quickcode_mst.delete({
       where: {
         quick_code_type_quick_code: {
@@ -912,18 +835,7 @@ export const deleteQuickCode = async (req, res) => {
 
     res.json({ message: 'Quick code entry deleted successfully' });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      console.error('PrismaClientKnownRequestError:', {
-        code: error.code,
-        message: error.message,
-        meta: error.meta,
-      });
-    } else if (error instanceof Prisma.PrismaClientValidationError) {
-      console.error('PrismaClientValidationError:', error.message);
-    } else {
-      console.error('Unhandled Error:', error);
-    }
-
+    console.error('Error deleting quick code:', error);
     res.status(500).json({ error: 'Failed to delete quick code' });
   }
 };

@@ -1,3 +1,4 @@
+import { sharedQuickCodes } from '../../utils/sharedQuickCodes.js';
 import { PrismaClient } from '@prisma/client';
 
 import { JWT_SECRET } from "../../config/index.js";
@@ -114,11 +115,10 @@ export const getLanguageMetadata = async (req, res) => {
             return res.status(400).json({ error: 'quick_code_type must be lancod' });
         }
 
-        const languageMetadata = await prisma.languageMetadata.findMany({
+        const languageMetadata = await prisma.languagemetadata.findMany({
             select: {
                 language_name: true,
                 language_code: true,
-                quick_code_type: true, // Assuming you want to include this field
             },
         });
 
@@ -154,68 +154,6 @@ export const getLanguagedetails = async (req, res) => {
       res.status(500).json({ error: 'Failed to retrieve Language names' });
     }
   }
-  export const getLanguageNames = async (req, res) => {
-    const { quick_code_type } = req.query;
-  
-    try {
-
-      const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-    const token = authHeader.split(" ")[1];
-
-    // Verify and decode the token
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-      if (error.name === "TokenExpiredError") {
-        return res.status(401).json({ error: "Token has expired" });
-      }
-      if (error.name === "JsonWebTokenError") {
-        return res.status(401).json({ error: "Invalid token" });
-      }
-      return res.status(500).json({ error: "Failed to verify token" });
-    }
-
-    // Extract created_by from token
-    const provinceName = decoded.province_name;
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-
-    const provinceCode = province.province_code;
-      if (quick_code_type && quick_code_type !== 'lancod') {
-        return res.status(400).json({ error: 'quick_code_type must be lancod' });
-      }
-  
-      const quickCodeNames = await prisma.quickcode_mst.findMany({
-        where: {
-          quick_code_type: 'lancod',
-          province_code:provinceCode
-        },
-        select: {
-          quickcode_name: true,
-          quick_code: true,
-          quick_code_type: true, // Include quick_code_type in the selection
-        },
-      });
-  
-      if (quickCodeNames.length === 0) {
-        return res.status(404).json({ message: 'No data found' });
-      }
-  
-      res.json(quickCodeNames);
-    } catch (error) {
-      console.error('Error retrieving quick code names:', error);
-      res.status(500).json({ error: 'Failed to retrieve quick code names' });
-    }
-  };
+  export const getLanguageNames = sharedQuickCodes(prisma, 'lancod');
 
 

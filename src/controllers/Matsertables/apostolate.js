@@ -1,3 +1,4 @@
+import { sharedQuickCodes } from '../../utils/sharedQuickCodes.js';
 import { PrismaClient } from '@prisma/client';
 import { JWT_SECRET } from "../../config/index.js";
 const prisma = new PrismaClient();
@@ -537,92 +538,9 @@ export const deleteApostolate = async (req, res) => {
 };
 
 
-export const getApostolateNames = async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
+export const getApostolateNames = sharedQuickCodes(prisma, 'apostl');
 
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    const provinceName = decoded.province_name;
-
-    // Find the corresponding province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-
-    const provinceCode = province.province_code;
-
-    const apostolates = await prisma.quickcode_mst.findMany({
-      where: {
-        quick_code_type: 'apostl', province_code: provinceCode,
-      },
-      select: {
-        quick_code: true,
-        quickcode_name: true
-      },
-      orderBy: {
-        quickcode_name: "asc", // Change this if another field defines the order
-      },
-    });
-
-    return res.status(200).json(apostolates);
-  } catch (error) {
-    console.error('Error fetching apostolate names:', error.message);
-    return res.status(500).json({ error: 'Internal Server Error' });
-  }
-};
-
-export const getCentreTypeNames = async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    const provinceName = decoded.province_name;
-
-    // Find the corresponding province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-
-    const provinceCode = province.province_code;
-    const centreTypes = await prisma.quickcode_mst.findMany({
-      where: {
-        quick_code_type: 'ctrtyp', province_code: provinceCode,
-      },
-      select: {
-        quick_code: true,
-        quickcode_name: true
-      },
-      orderBy: {
-        quickcode_name: "asc", // Change this if another field defines the order
-      },
-    });
-
-    return res.status(200).json(centreTypes);
-  } catch (error) {
-    console.error('Error fetching centre type names:', error.message);
-    return res.status(500).json({ error: 'Internal Server Error' });
-  }
-};
+export const getCentreTypeNames = sharedQuickCodes(prisma, 'ctrtyp');
 
 
 

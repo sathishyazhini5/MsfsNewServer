@@ -381,11 +381,13 @@ export const getAllDepartures = async (req, res) => {
 };
 
 export const getDepartureByCode = async (req, res) => {
-  const { departure_code } = req.body;
+  const departure_code = req.query.departure_code || req.body?.departure_code;
+  if (!departure_code) return res.status(400).json({ error: 'departure_code is required.' });
 
   try {
-    const departure = await prisma.departures_dtl.findUnique({
-      where: { departure_code: departure_code },
+    const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code);
+    const departure = await prisma.departures_dtl.findFirst({
+      where: { departure_code, ...provinceScopeWhere(provinceCodes) },
     });
 
     if (!departure) {
@@ -395,7 +397,7 @@ export const getDepartureByCode = async (req, res) => {
     return res.status(200).json(departure);
   } catch (error) {
     console.error('Error fetching departure:', error.message);
-    return res.status(500).json({ error: 'Internal Server Error' });
+    return sendScopeError(res, error, 'Failed to fetch departure');
   }
 };
 

@@ -1,3 +1,4 @@
+import { scholasticVowsWhere } from '../../utils/scholasticVows.js';
 import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
 import { JWT_SECRET } from "../../config/index.js";
@@ -163,11 +164,36 @@ export const getDashboardDetails = async (req, res) => {
         { title: "Name", dataIndex: "name" }, { title: "Province", dataIndex: "province_name" },
         { title: "Mobile Number", dataIndex: "mobile_number" }, { title: "Email", dataIndex: "personal_mailid1" },
       ];
-    } else if (["SCHOLASTIC_PERPETUAL", "SCHOLASTIC_TEMPORARY", "NOVICE", "MINOR_SEMINARIAN"].includes(type)) {
-      const isProfession = type.startsWith("SCHOLASTIC_");
-      const codeField = isProfession ? "promotion_to_code" : "scholastic_type_code";
-      const quickType = isProfession ? "promto" : "schtyp";
-      const quickName = ({ SCHOLASTIC_PERPETUAL: "final profession", SCHOLASTIC_TEMPORARY: "first profession", NOVICE: "novoices", MINOR_SEMINARIAN: "minor seminarians" })[type];
+    } else if (["SCHOLASTIC_PERPETUAL", "SCHOLASTIC_TEMPORARY"].includes(type)) {
+      const baseWhere = scholasticVowsWhere(type, provinceWhere(provinceCodes));
+      where = { ...baseWhere, ...(search ? { OR: [{ first_name: contains(search) }, { middle_name: contains(search) }, { last_name: contains(search) }, { personal_mailid1: contains(search) }, ...mobileEquals(search, "personal1_contact_no")] } : {}) };
+      [total, filteredTotal, records] = await Promise.all([
+        prisma.scholastics_dtl.count({ where: baseWhere }),
+        prisma.scholastics_dtl.count({ where }),
+        prisma.scholastics_dtl.findMany({ where, select: { scholastic_code: true, province_code: true, first_name: true, middle_name: true, last_name: true, personal1_isd: true, personal1_contact_no: true, personal_mailid1: true }, orderBy: [{ first_name: "asc" }, { scholastic_code: "asc" }, { province_code: "asc" }], skip, take }),
+      ]);
+      const admissions = records.length ? await prisma.scholastics_admisn_promon_dtl.findMany({
+        where: { end_date: null, OR: records.map((row) => ({ scholastic_code: row.scholastic_code, province_code: row.province_code })) },
+        select: { scholastic_code: true, province_code: true, centre_place: true },
+        orderBy: { start_date: "desc" },
+      }) : [];
+      records = (await decorateProvinces(records)).map((row) => ({
+        ...row,
+        name: [row.first_name, row.middle_name, row.last_name].filter(Boolean).join(" "),
+        mobile_number: displayMobile(row.personal1_contact_no, row.personal1_isd),
+        personal1_contact_no: undefined,
+        email: row.personal_mailid1 || "-",
+        centre_place: admissions.find((entry) => entry.scholastic_code === row.scholastic_code && entry.province_code === row.province_code)?.centre_place || "-",
+      }));
+      columns = [
+        { title: "Name", dataIndex: "name" }, { title: "Province", dataIndex: "province_name" },
+        { title: "Mobile Number", dataIndex: "mobile_number" }, { title: "Email", dataIndex: "email" },
+        { title: "Centre", dataIndex: "centre_place" },
+      ];
+    } else if (["NOVICE", "MINOR_SEMINARIAN"].includes(type)) {
+      const codeField = "scholastic_type_code";
+      const quickType = "schtyp";
+      const quickName = ({ NOVICE: "novoices", MINOR_SEMINARIAN: "minor seminarians" })[type];
       const codes = await quickCodesByName(quickType, [quickName]);
       const baseWhere = { ...provinceWhere(provinceCodes), [codeField]: { in: codes }, end_date: null };
       const matchingScholastics = search ? await prisma.scholastics_dtl.findMany({

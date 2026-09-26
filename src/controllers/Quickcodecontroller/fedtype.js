@@ -1,3 +1,4 @@
+import { sharedQuickCodes } from '../../utils/sharedQuickCodes.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -73,64 +74,5 @@ export const createQuickCodeFedtyp = async (req, res) => {
 };
 
 
-export const getFedTypeNames = async (req, res) => {
-  try {
-
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    let decoded;
-    try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-        if (error.name === "TokenExpiredError") {
-            return res.status(401).json({ error: "Token has expired" });
-        }
-        if (error.name === "JsonWebTokenError") {
-            return res.status(401).json({ error: "Invalid token" });
-        }
-        return res.status(500).json({ error: "Failed to verify token" });
-    }
-
-    const provinceNameFromToken = decoded.province_name;
-
-    if (!provinceNameFromToken) {
-        return res.status(400).json({ error: "Province information is missing in token" });
-    }
-
-    const province = await prisma.province_mst.findFirst({
-        where: { province_name: provinceNameFromToken },
-        select: { province_code: true },
-    });
-
-    if (!province) {
-        return res.status(404).json({ error: "Province not found for the given name" });
-    }
-
-    const provinceCode = province.province_code; // Extract province_code
-    const quickCodeNames = await prisma.quickcode_mst.findMany({
-      where: {
-        quick_code_type: 'fedtyp',
-        province_code: provinceCode
-      },
-      select: {
-        quickcode_name: true,
-        quick_code: true,
-        quick_code_type: true,
-      },
-    });
-
-    if (quickCodeNames.length === 0) {
-      return res.status(404).json({ message: 'No feedback types found' });
-    }
-
-    res.json(quickCodeNames);
-  } catch (error) {
-    console.error('Error retrieving feedback type names:', error);
-    res.status(500).json({ error: 'Failed to retrieve feedback type names' });
-  }
-}
+export const getFedTypeNames = sharedQuickCodes(prisma, 'fedtyp');
 

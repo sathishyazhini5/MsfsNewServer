@@ -79,29 +79,14 @@ export const getAllEvents = async (req, res) => {
 // getEventById
 
 export const getEventById = async (req, res) => {
-    const { event_id } = req.body;
-
-    try {
-        const event = await prisma.event_dtl.findUnique({
-            where: { event_id },
-        });
-
-        if (!event) {
-            return res.status(404).json({ error: 'Event not found' });
-        }
-
-        const formattedEvents = event.map(event => ({
-            ...event,
-            from_time: event.from_time ? event.from_time.toISOString().substr(11, 8) : null, // Check if from_time is not null
-            to_time: event.to_time ? event.to_time.toISOString().substr(11, 8) : null        // Check if to_time is not null
-        }));
-
-         return res.status(200).json(formattedEvents);
-
-    } catch (error) {
-        console.error('Error fetching event:', error.message);
-        return res.status(500).json({ error: 'Internal Server Error' });
-    }
+  const event_id = req.query.event_id || req.body?.event_id;
+  if (!event_id) return res.status(400).json({ error: 'event_id is required.' });
+  try {
+    const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code);
+    const event = await prisma.event_dtl.findFirst({ where: { event_id, ...provinceScopeWhere(provinceCodes) } });
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    return res.json({ ...event, from_time: event.from_time ? event.from_time.toISOString().slice(11, 19) : null, to_time: event.to_time ? event.to_time.toISOString().slice(11, 19) : null });
+  } catch (error) { return sendScopeError(res, error, 'Failed to fetch event'); }
 };
 
 

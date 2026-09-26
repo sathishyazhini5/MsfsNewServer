@@ -1,3 +1,4 @@
+import { sharedQuickCodes } from '../../utils/sharedQuickCodes.js';
 import { PrismaClient } from '@prisma/client';
 
 import { JWT_SECRET } from "../../config/index.js";
@@ -72,84 +73,30 @@ export const createQuickCodeMember = async (req, res) => {
 };
 
 export const getMemberTypeNames = async (req, res) => {
-    try {
-        const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Access token is missing or invalid' });
     }
+    jwt.verify(authHeader.slice(7), JWT_SECRET);
 
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    const provinceName = decoded.province_name;
-
-    // Find the corresponding province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
+    // Member types are shared Quick Master records, not province-specific data.
+    const memberTypes = await prisma.quickcode_mst.findMany({
+      where: { quick_code_type: 'memtyp' },
+      select: { quickcode_name: true, quick_code: true, quick_code_type: true },
+      orderBy: { quickcode_name: 'asc' },
     });
+    return res.json(memberTypes);
+  } catch (error) {
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token has expired' });
+    }
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: 'Invalid token' });
+    }
+    console.error('Error retrieving member type names:', error);
+    return res.status(500).json({ error: 'Failed to retrieve member type names' });
+  }
+};
 
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-
-    const provinceCode = province.province_code;
-      const quickCodeNames = await prisma.quickcode_mst.findMany({
-        where: {
-          quick_code_type: 'memtyp',
-          province_code:provinceCode
-        },
-        select: {
-          quickcode_name: true,
-          quick_code: true,
-          quick_code_type: true,
-        },
-        orderBy: {
-          quickcode_name: "asc", // Change this if another field defines the order
-        },
-      });
-  
-      if (quickCodeNames.length === 0) {
-        return res.status(404).json({ message: 'No member types found' });
-      }
-  
-      res.json(quickCodeNames);
-    } catch (error) {
-      console.error('Error retrieving member type names:', error);
-      res.status(500).json({ error: 'Failed to retrieve member type names' });
-    }
-  };
-  
-  export const getMemberbyprovince = async (req, res) => {
-    try {
-      const { province_code } = req.query; // 📥 Take from query like ?province_code=PR001
-  
-      if (!province_code) {
-        return res.status(400).json({ error: 'Province code is required' });
-      }
-  
-      const quickCodeNames = await prisma.quickcode_mst.findMany({
-        where: {
-          quick_code_type: 'memtyp',
-          province_code: province_code
-        },
-        select: {
-          quickcode_name: true,
-          quick_code: true,
-          quick_code_type: true,
-        },
-        orderBy: {
-          quickcode_name: "asc",
-        },
-      });
-  
-      if (!quickCodeNames.length) {
-        return res.status(404).json({ message: 'No member types found for this province' });
-      }
-  
-      res.json(quickCodeNames);
-    } catch (error) {
-      console.error('Error retrieving member type names:', error);
-      res.status(500).json({ error: 'Failed to retrieve member type names' });
-    }
-  };
+  export const getMemberbyprovince = sharedQuickCodes(prisma, 'memtyp');

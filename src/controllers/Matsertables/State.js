@@ -32,8 +32,6 @@ export const saveStateData = async (req, res) => {
       return res.status(500).json({ error: "Failed to verify token" });
     }
 
-    // Extract created_by from token
-    const provinceName = decoded.province_name;
     const createdBy = decoded.role_name || decoded.username || 'Unknown';
 
     // Validate required fields
@@ -41,16 +39,16 @@ export const saveStateData = async (req, res) => {
       return res.status(400).json({ message: 'state_code and country_code are required.' });
     }
 
-    // Find the corresponding province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name:provinceName },
-      select: { province_code: true },
+    const provinceCode = decoded.province_code || 'ALL';
+
+    const country = await prisma.countrymetadata.findUnique({
+      where: { alpha_3code: country_code },
+      select: { ISD_code: true },
     });
 
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the given name" });
+    if (!country) {
+      return res.status(400).json({ message: `Country code ${country_code} is not available in the country master.` });
     }
-    const provinceCode = province.province_code;
 
     // Check if the state already exists in the state_mst table
     const existingState = await prisma.state_mst.findUnique({
@@ -73,7 +71,7 @@ export const saveStateData = async (req, res) => {
       country_code,
       province_code: provinceCode,
       state_name,
-      ISD_code,
+      ISD_code: ISD_code || country.ISD_code,
       language_code: language_code || "en", // Optional field
       concurrency_val: concurrency_val || 1, // Default value if not provided
       created_by: createdBy, // Default to 'system' if not provided
@@ -113,43 +111,27 @@ export const getStateData = async (req, res) => {
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    const provinceName = decoded.province_name;
-
-    // Find the corresponding province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-
-    const provinceCode = province.province_code;
-
     const { state_code, country_code } = req.query;
-
-    let stateData;
-    if (state_code && country_code) {
-      // Fetch the state data from the state_mst table
-      stateData = await prisma.state_mst.findUnique({
-        where: {
-          state_code_country_code: {
-            state_code,
-            country_code,
-          },
-        },
-      });
-
-      if (!stateData) {
-        return res.status(404).json({ message: `State with code ${state_code} not found in country ${country_code}.` });
-      }
-    } else {
-      // Fetch all state data if no query parameters are provided
-      stateData = await prisma.state_mst.findMany({
-        where: { province_code: provinceCode },
-      });
-    }
+    const stateData = await prisma.$queryRaw`
+      SELECT
+        s.state_code,
+        s.state_name,
+        s.country_code,
+        c.country_name,
+        s."ISD_code",
+        s.province_code,
+        s.language_code,
+        s.concurrency_val,
+        s.created_by,
+        s.created_date,
+        s.updated_by,
+        s.updated_date
+      FROM state_mst s
+      INNER JOIN countrymetadata c ON c.alpha_3code = s.country_code
+      WHERE (${country_code || null}::text IS NULL OR s.country_code = ${country_code || null})
+        AND (${state_code || null}::text IS NULL OR s.state_code = ${state_code || null})
+      ORDER BY c.country_name, s.state_name
+    `;
 
     // Send a success response with the fetched data
     res.status(200).json(stateData);

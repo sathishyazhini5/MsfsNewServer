@@ -9,6 +9,51 @@
             "date": 1788172060036,
             "name": "E:\\E_status_deploy\\Backend\\error\\2026-08-31.log",
             "hash": "2c2b2fe8000c0cc3380d10fe5f22fe1be2b7d935c4aa529be02acee48225f3cc"
+        },
+        {
+            "date": 1789108640030,
+            "name": "E:\\E_status_deploy\\Backend\\error\\2026-09-11.log",
+            "hash": "21275f116b5a5231338915d2e73460536e757dfe7e9a99020315e671cb2f9fdf"
+        },
+        {
+            "date": 1789188410888,
+            "name": "E:\\E_status_deploy\\Backend\\error\\2026-09-12.log",
+            "hash": "eb101c3e470f764efe282e656b2bb753de269399517b0d08093e3e490fa90481"
+        },
+        {
+            "date": 1789451137742,
+            "name": "E:\\E_status_deploy\\Backend\\error\\2026-09-15.log",
+            "hash": "c7dc9ccbe411704ae808331bc39f93d2ef98cc5c29d055273270419c6aeff112"
+        },
+        {
+            "date": 1789621116205,
+            "name": "E:\\E_status_deploy\\Backend\\error\\2026-09-17.log",
+            "hash": "fcd83e5aba8797ac83c9776818055acf0c2140862daa6b1e999f1a52335fb023"
+        },
+        {
+            "date": 1789799290816,
+            "name": "E:\\E_status_deploy\\Backend\\error\\2026-09-19.log",
+            "hash": "b2145cd735e1c2203f2e0c91c9327445ce00da493e73df04abbcf7f519724ce0"
+        },
+        {
+            "date": 1790007157216,
+            "name": "E:\\E_status_deploy\\Backend\\error\\2026-09-21.log",
+            "hash": "320c3277f36f31a9694e7f2f9a456bab59a4dbe413bcbb2227ce96b959970059"
+        },
+        {
+            "date": 1790060014441,
+            "name": "E:\\E_status_deploy\\Backend\\error\\2026-09-22.log",
+            "hash": "4f64826a0bc54a3239e3a1d52caaa03d67c0057aab0cf2315511ccbf0ce2fd7c"
+        },
+        {
+            "date": 1790241559194,
+            "name": "E:\\E_status_deploy\\Backend\\error\\2026-09-24.log",
+            "hash": "44b8664a37fc2bc4c0293c249f9025e255b43ae515e4f5729643ec43fe549b2a"
+        },
+        {
+            "date": 1790398290935,
+            "name": "E:\\E_status_deploy\\Backend\\error\\2026-09-26.log",
+            "hash": "cdf3f8e5caf58381f159b449e3d00f9b4731925344ca8c4156c8bcc971b4a854"
         }
     ],
     "hashType": "sha256"

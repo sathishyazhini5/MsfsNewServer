@@ -1,3 +1,4 @@
+import { countScholasticVows } from '../../utils/scholasticVows.js';
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
@@ -180,10 +181,13 @@ export const getDivisionCounts = async (req, res) => {
         try {
           const decoded = jwt.verify(token, JWT_SECRET);
 
-          role_name = decoded.role_name.toLowerCase();
+          role_name = decoded.role_name.trim().toLowerCase();
           province_name = decoded.province_name;
 
-          if (province_name) {
+          if (role_name === "super admin") {
+            // ALL is a login scope, not a province record.
+            province_code = "ALL";
+          } else if (province_name) {
             const province = await prisma.province_mst.findFirst({
               where: { province_name: province_name },
               select: { province_code: true },
@@ -254,52 +258,10 @@ export const getDivisionCounts = async (req, res) => {
         });
       }
 
-      // Fetch quick codes for promotion types
-const promotionTypeQuickcodes = await prisma.quickcode_mst.findMany({
-  where: {
-    quick_code_type: "promto",
-    quickcode_name: { in: ["first profession", "final profession"], mode: "insensitive" },
-  },
-  select: {
-    quick_code: true,
-    quickcode_name: true,
-  },
-});
-
-// Map quick_code to quickcode_name for case-insensitive matching
-const promotionTypeMap = Object.fromEntries(
-  promotionTypeQuickcodes.map((q) => [q.quick_code.toLowerCase(), q.quickcode_name.toLowerCase()])
-);
-
-// Initialize counts for "first profession" and "final profession"
-const promotionTypeCounts = {
-  first_profession: 0,
-  final_profession: 0,
-};
-
-// Group and count data from the `scholastics_admisn_promon_dtl` table
-const promotionCounts = await prisma.scholastics_admisn_promon_dtl.groupBy({
-  by: ["promotion_to_code"],
-  where: {
-    ...(province_code && province_code !== "ALL" ? { province_code } : {}),
-    promotion_to_code: { in: Object.keys(promotionTypeMap) },
-    end_date: null,
-  },
-  _count: { promotion_to_code: true },
-});
-
-// Map counts to their respective promotion types
-promotionCounts.forEach((count) => {
-  const quickcodeName = promotionTypeMap[count.promotion_to_code.toLowerCase()];
-  if (quickcodeName === "first profession") {
-    promotionTypeCounts.first_profession += count._count.promotion_to_code;
-  } else if (quickcodeName === "final profession") {
-    promotionTypeCounts.final_profession += count._count.promotion_to_code;
-  }
-});
-
-// Result: `promotionTypeCounts` will hold the counts for "first profession" and "final profession"
-console.log("Promotion Counts:", promotionTypeCounts);
+      const vowsCounts = await countScholasticVows(
+        prisma,
+        province_code && province_code !== "ALL" ? { province_code } : {},
+      );
 
       // Fetch quick codes for member types
       const memberTypeQuickcodes = await prisma.quickcode_mst.findMany({
@@ -496,8 +458,8 @@ console.log("Promotion Counts:", promotionTypeCounts);
         province_code,
         province_name: province_name || "ALL",
         role_name,
-        firstProfessionCount: promotionTypeCounts.first_profession, // Updated
-        finalProfessionCount: promotionTypeCounts.final_profession,
+        firstProfessionCount: vowsCounts.firstProfessionCount, // Updated
+        finalProfessionCount: vowsCounts.finalProfessionCount,
         ...memberTypeCounts,
         ...scholasticTypeCounts,
         ...apostolateCounts,

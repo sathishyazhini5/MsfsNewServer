@@ -79,7 +79,12 @@ if (!isPasswordValid) {
     let concretionDetails = null;
     let provinceDetails = null;
 
-    if (user.prov_concre_code.startsWith('conc')) {
+    if (user.prov_concre_code === 'ALL') {
+      provinceDetails = {
+        province_code: 'ALL',
+        province_name: 'All',
+      };
+    } else if (user.prov_concre_code.startsWith('conc')) {
       concretionDetails = await prisma.concretion_defination_mst.findFirst({
         where: { concretion_code: user.prov_concre_code },
         select: {

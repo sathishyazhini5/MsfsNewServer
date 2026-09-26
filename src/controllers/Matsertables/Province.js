@@ -52,6 +52,11 @@ export const createProvince = async (req, res, next) => {
 
  
   try {
+    const currentUser = res.locals.user;
+    const normalizedRoleName = currentUser?.role_name?.trim().toLowerCase();
+    if (!['concretion admin', 'congregation admin'].includes(normalizedRoleName)) {
+      return res.status(403).json({ error: 'Only Congregation Admin users can create Province records.' });
+    }
 
     const existingProvinceByName = await prisma.province_mst.findFirst({
       where: {
@@ -110,7 +115,6 @@ export const createProvince = async (req, res, next) => {
 
     await prisma.quickcode_mst.create({
       data: {
-        province_code: provinceCode,
         quick_code_type: 'rolnam',
         quick_code: quickCode,
         quickcode_name: 'Province Admin',

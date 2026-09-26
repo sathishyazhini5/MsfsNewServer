@@ -51,6 +51,11 @@ const generateNextQuickCode = async () => {
 export const createConcretion = async (req, res, next) => {
 
   try {
+        const currentUser = res.locals.user;
+        if (currentUser?.role_name?.toLowerCase() !== 'super admin') {
+          return res.status(403).json({ error: 'Only Super Admin users can create Congregation records.' });
+        }
+
         console.log('Request Body:', req.body);
         const authHeader = req.headers.authorization;
         if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -72,21 +77,7 @@ export const createConcretion = async (req, res, next) => {
           return res.status(500).json({ error: "Failed to verify token" });
         }
   
-        // Extract `province_name` and `created_by` from the decoded token
-        const provinceName = decoded.province_name;
         const createdBy = decoded.role_name || decoded.username || "Unknown";
-  
-        // Fetch `province_code` based on `province_name`
-        const province = await prisma.province_mst.findFirst({
-          where: { province_name: provinceName },
-          select: { province_code: true },
-        });
-  
-        if (!province) {
-          return res.status(404).json({ error: "Province not found for the given name" });
-        }
-  
-        const province_code = province.province_code;
   
   const {
     concretionName,
@@ -152,7 +143,6 @@ export const createConcretion = async (req, res, next) => {
 
     await prisma.quickcode_mst.create({
       data: {
-        province_code:province_code,
         quick_code_type: 'rolnam',
         quick_code: quickCode,
         quickcode_name: 'Congregation Admin',

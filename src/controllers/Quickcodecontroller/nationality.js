@@ -39,18 +39,7 @@ export const createNationalityMetadata = async (req, res) => {
       return res.status(500).json({ error: "Failed to verify token" });
     }
 
-    // Extract province_name and verify against the database
-    const provinceName = decoded.province_name;
     const createdBy = decoded.role_name || decoded.username || 'Unknown';
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-    const provinceCode = province.province_code;
     // Verify that the quick_code_type 'natlty' is a valid meta_code
     const metaCodeEntry = await prisma.meta_data_mst.findFirst({
       where: {
@@ -64,13 +53,12 @@ export const createNationalityMetadata = async (req, res) => {
     }
 
     // Check if the nationality already exists in quickcode_mst
-    const existingNationality = await prisma.quickcode_mst.findFirst({
-      where: {
-        quick_code_type,
-        province_code: provinceCode,
-        quickcode_name: nationality,
-      },
-    });
+      const existingNationality = await prisma.quickcode_mst.findFirst({
+        where: {
+          quick_code_type,
+          quickcode_name: nationality,
+        },
+      });
 
     if (existingNationality) {
       return res.status(400).json({ error: 'Nationality already exists' });
@@ -122,7 +110,6 @@ export const createNationalityMetadata = async (req, res) => {
     const newQuickcodeEntry = await prisma.quickcode_mst.create({
       data: {
         quick_code_type,
-        province_code: provinceCode,
         quick_code: newQuickCode,
         quickcode_name: nationality,
         concurrency_val: 1,
@@ -149,19 +136,20 @@ export const getNationalityMetadata = async (req, res) => {
       return res.status(400).json({ error: 'quick_code_type must be natlty' });
     }
 
-    const nationalityMetadata = await prisma.nationalitymetadata.findMany({
+      const nationalityMetadata = await prisma.quickcode_mst.findMany({
+        where: { quick_code_type: 'natlty' },
       select: {
-        nationality: true,
-        code: true,
-        quick_code_type: true, // Assuming you want to include this field
+          quickcode_name: true,
+          quick_code: true,
+          quick_code_type: true,
       },
     });
 
-    if (nationalitymetadata.length === 0) {
+    if (nationalityMetadata.length === 0) {
       return res.status(404).json({ message: 'No data found' });
     }
 
-    res.json(nationalitymetadata);
+    res.json(nationalityMetadata);
   } catch (error) {
     console.error('Error retrieving nationality metadata:', error);
     res.status(500).json({ error: 'Failed to retrieve nationality metadata' });
@@ -212,18 +200,6 @@ export const getNationalityNames = async (req, res) => {
       return res.status(500).json({ error: "Failed to verify token" });
     }
 
-    // Extract province_code and province_name from the decoded token
-    const provinceName = decoded.province_name;
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(StatusCodes.NOT_FOUND).json({ error: "Province not found for the logged-in user" });
-    }
-    const provinceCode = province.province_code;
-
     if (quick_code_type && quick_code_type !== 'natlty') {
       return res.status(400).json({ error: 'quick_code_type must be natlty' });
     }
@@ -231,13 +207,11 @@ export const getNationalityNames = async (req, res) => {
     const quickCodeNames = await prisma.quickcode_mst.findMany({
       where: {
         quick_code_type: 'natlty',
-        province_code:provinceCode
       },
       select: {
         quickcode_name: true,
         quick_code: true,
         quick_code_type: true,
-        province_code:true // Include quick_code_type in the selection
       },
     });
 

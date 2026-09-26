@@ -41,7 +41,6 @@ model province_mst {
 }
 
 model quickcode_mst {
-  province_code   String    @db.VarChar(10) // PK
   quick_code_type String    @db.VarChar(10) // PK
   quick_code      String    @db.VarChar(10) // PK
   quickcode_name  String    @db.VarChar(100)

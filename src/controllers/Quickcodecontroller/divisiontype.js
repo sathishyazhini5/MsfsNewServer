@@ -88,27 +88,12 @@ export const getDivisionNames = async (req, res) => {
     }
 
     const token = authHeader.split(" ")[1];  // Extract the token from the header
-    const decoded = jwt.verify(token, JWT_SECRET);  // Verify the token
+    jwt.verify(token, JWT_SECRET);
 
-    const provinceName = decoded.province_name;  // Extract province_name from decoded token
-
-    // Find the corresponding province_code from the province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-
-    const provinceCode = province.province_code;
-
-    // Fetch the division types based on the province_code
+    // Division types are shared Quick Master records.
     const quickCodeNames = await prisma.quickcode_mst.findMany({
       where: {
         quick_code_type: 'divtyp',  // Filter by division type
-        province_code: provinceCode,  // Filter by the province_code of the logged-in user
       },
       select: {
         quickcode_name: true,
@@ -116,10 +101,6 @@ export const getDivisionNames = async (req, res) => {
         quick_code_type: true,
       },
     });
-
-    if (quickCodeNames.length === 0) {
-      return res.status(404).json({ message: 'No division types found for this province' });
-    }
 
     // Return the division types in the response
     res.json(quickCodeNames);

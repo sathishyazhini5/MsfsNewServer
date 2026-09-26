@@ -8,6 +8,7 @@
   "scripts": {
     "clean:all": "rimraf node_modules pnpm-lock.yaml",
     "start": "nodemon ./src/app.js",
+    "seed:states": "node scripts/seedStates.js",
     "lint": "eslint './src/**/*.{js,jsx}' --fix",
     "format": "prettier --write './src/**/*.{js,jsx}'",
     "prisma:generate": "prisma generate"

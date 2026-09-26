@@ -8,6 +8,7 @@ import { JWT_SECRET } from "../../config/index.js";
 import {uploadBufferToBlob} from "../../middlewares/azureBlob.js"
 import multer from 'multer';
 import { provinceScopeWhere, resolveDataScope, sendScopeError } from '../../utils/dataScope.js';
+import { resolveAuthorizedProvince } from '../../services/confrereCreationService.js';
 const excelUpload = multer();
 
 
@@ -43,20 +44,12 @@ export const saveScholasticDetail = async (req, res) => {
         return res.status(500).json({ error: "Failed to verify token" });
       }
 
-      // Extract `province_name` and `created_by` from the decoded token
-      const provinceName = decoded.province_name;
       const createdBy = decoded.role_name || decoded.username || "Unknown";
-
-      // Fetch `province_code` based on `province_name`
-      const province = await prisma.province_mst.findFirst({
-        where: { province_name: provinceName },
-        select: { province_code: true },
+      const province = await resolveAuthorizedProvince({
+        prisma,
+        user: decoded,
+        requestedProvince: req.body.province_code,
       });
-
-      if (!province) {
-        return res.status(404).json({ error: "Province not found for the given name" });
-      }
-
       const province_code = province.province_code;
 
       // Remove spaces from keys in the request body
@@ -215,7 +208,7 @@ export const saveScholasticDetail = async (req, res) => {
       res.status(201).json(responseData);
     } catch (error) {
       console.log(error);
-      res.status(500).json({ error: error.message });
+      res.status(error.status || 500).json({ error: error.message });
     }
   });
 };

@@ -1,3 +1,4 @@
+import { sharedQuickCodes } from '../../utils/sharedQuickCodes.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -70,111 +71,6 @@ export const createDioceseQuickCode = async (req, res) => {
     }
 };
 
-export const getDioceseQuickCodes = async (req, res) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
+export const getDioceseQuickCodes = sharedQuickCodes(prisma, 'diocse');
 
-    const token = authHeader.split(" ")[1];
-    let decoded;
-    try {
-        decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-        if (error.name === "TokenExpiredError") {
-            return res.status(401).json({ error: "Token has expired" });
-        }
-        if (error.name === "JsonWebTokenError") {
-            return res.status(401).json({ error: "Invalid token" });
-        }
-        return res.status(500).json({ error: "Failed to verify token" });
-    }
-
-    const provinceNameFromToken = decoded.province_name;
-
-    if (!provinceNameFromToken) {
-        return res.status(400).json({ error: "Province information is missing in token" });
-    }
-
-    const province = await prisma.province_mst.findFirst({
-        where: { province_name: provinceNameFromToken },
-        select: { province_code: true },
-    });
-
-    if (!province) {
-        return res.status(404).json({ error: "Province not found for the given name" });
-    }
-
-    const provinceCode = province.province_code; // Extract province_code
-
-    const { quick_code_type } = req.query;
-
-    try {
-        if (quick_code_type && quick_code_type !== "diocse") {
-            return res.status(400).json({ error: "quick_code_type must be diocse" });
-        }
-
-        const quickCodeNames = await prisma.quickcode_mst.findMany({
-            where: {
-                quick_code_type: "diocse",
-                province_code: provinceCode, // Use the extracted string value
-            },
-            select: {
-                quickcode_name: true,
-                quick_code: true,
-                quick_code_type: true,
-            },
-            orderBy: {
-                quickcode_name: "asc", // Change this if another field defines the order
-              },
-        });
-
-        if (quickCodeNames.length === 0) {
-            return res.status(404).json({ message: "No data found" });
-        }
-
-        res.json(quickCodeNames);
-    } catch (error) {
-        console.error("Error retrieving quick code names:", error);
-        res.status(500).json({ error: "Failed to retrieve quick code names" });
-    }
-};
-
-export const getDiocesebyProvince = async (req, res) => {
-    const { province_code, quick_code_type } = req.query;
-  
-    // Validate required fields
-    if (!province_code) {
-      return res.status(400).json({ error: "province_code is required" });
-    }
-  
-    if (quick_code_type && quick_code_type !== "diocse") {
-      return res.status(400).json({ error: "quick_code_type must be diocse" });
-    }
-  
-    try {
-      const quickCodeNames = await prisma.quickcode_mst.findMany({
-        where: {
-          quick_code_type: "diocse",
-          province_code: province_code,
-        },
-        select: {
-          quickcode_name: true,
-          quick_code: true,
-          quick_code_type: true,
-        },
-        orderBy: {
-          quickcode_name: "asc",
-        },
-      });
-  
-      if (!quickCodeNames.length) {
-        return res.status(404).json({ message: "No dioceses found for the given province" });
-      }
-  
-      res.status(200).json(quickCodeNames);
-    } catch (error) {
-      console.error("❌ Error retrieving diocese quick codes:", error);
-      res.status(500).json({ error: "Failed to retrieve diocese quick codes" });
-    }
-  };
+export const getDiocesebyProvince = sharedQuickCodes(prisma, 'diocse');

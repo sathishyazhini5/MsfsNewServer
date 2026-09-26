@@ -1,3 +1,5 @@
+import { listISDCodes } from '../../services/isdCodes.js';
+import { provinceScopeWhere, resolveDataScope, sendScopeError } from '../../utils/dataScope.js';
 import { PrismaClient } from '@prisma/client';
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../../config/index.js";
@@ -31,20 +33,8 @@ export const saveCountryData = async (req, res) => {
       return res.status(500).json({ error: "Failed to verify token" });
     }
 
-    // Extract province_name and created_by from the token
-    const provinceName = decoded.province_name;
     const createdBy = decoded.role_name || decoded.username || 'Unknown';
-
-    // Find the corresponding province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-    const provinceCode = province.province_code;
+    const provinceCode = decoded.province_code || 'ALL';
 
     // Check if country_code already exists in the country_mst table
     const existingCountry = await prisma.country_mst.findUnique({
@@ -98,19 +88,7 @@ export const getCountryData = async (req, res) => {
 
     const decoded = jwt.verify(token, JWT_SECRET);
 
-    const provinceName = decoded.province_name;
-
-    // Find the corresponding province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-
-    const provinceCode = province.province_code;
+    const provinceCode = decoded.province_code || 'ALL';
 
     // Fetch all data from the country_mst table for the user's province
     const countryData = await prisma.country_mst.findMany({
@@ -218,31 +196,16 @@ export const deleteCountry = async (req, res) => {
 };
 export const getCountryDetails = async (req, res) => {
   const { alpha_3code } = req.query;
+  if (!alpha_3code) return res.status(400).json({ error: 'alpha_3code is required.' });
 
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    const provinceName = decoded.province_name;
-
-    // Find province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-    const provinceCode = province.province_code;
-
-    // Fetch country details by alpha_3code and province_code
     const countryDetails = await prisma.countrymetadata.findUnique({
       where: { alpha_3code },
+      select: {
+        country_name: true,
+        alpha_3code: true,
+        ISD_code: true,
+      },
     });
 
     if (!countryDetails) {
@@ -266,19 +229,6 @@ export const listCountries = async (req, res) => {
     }
     const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, JWT_SECRET);
-
-    const provinceName = decoded.province_name;
-
-    // Find province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-    const provinceCode = province.province_code;
 
     // Fetch list of countries for the user's province
     const countries = await prisma.countrymetadata.findMany({
@@ -305,42 +255,18 @@ export const listCountries = async (req, res) => {
 export const getISDCodes = async (req, res) => {
   const { country_code} = req.query;
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-    const token = authHeader.split(" ")[1];
-    const decoded = jwt.verify(token, JWT_SECRET);
-
-    const provinceName = decoded.province_name;
-
-    // Find province_code based on province_name
-    const province = await prisma.province_mst.findFirst({
-      where: { province_name: provinceName },
-      select: { province_code: true },
-    });
-
-    if (!province) {
-      return res.status(404).json({ error: "Province not found for the logged-in user" });
-    }
-    const provinceCode = province.province_code;
-    
-    // Fetch ISD codes for the user's province
-    const isdCodes = await prisma.country_mst.findMany({
-      where: { province_code: provinceCode,country_code: country_code },
-      select: {
-        ISD_code: true,
-      },
-    });
+    // Validate access, but dialing codes are shared reference data, not province data.
+    await resolveDataScope(req, prisma, req.query.province_code);
+    const isdCodes = await listISDCodes(prisma, country_code);
 
     if (!isdCodes || isdCodes.length === 0) {
-      return res.status(404).json({ message: 'No ISD codes found for this province.' });
+      return res.status(404).json({ message: 'No ISD codes found.' });
     }
 
     res.status(200).json(isdCodes);
   } catch (error) {
     console.error('Error fetching ISD codes:', error);
-    res.status(500).json({ message: 'Error fetching ISD codes.', error: error.message });
+    return sendScopeError(res, error, 'Error fetching ISD codes.');
   } finally {
     await prisma.$disconnect();
   }
@@ -368,6 +294,7 @@ export const CountriesListFromMetadata = async (req, res) => {
       select: {
         country_name: true,
         alpha_3code: true,
+        ISD_code: true,
       },
     });
 
@@ -388,12 +315,7 @@ export const getAllISDCodes = async (req, res) => {
   console.log('getISDCodes route hit');
 
   try {
-    // Fetch only the ISD_code from the country_mst table
-    const isdCodes = await prisma.countrymetadata.findMany({
-      select: {
-        ISD_code: true,
-      },
-    });
+    const isdCodes = await listISDCodes(prisma, req.query.country_code);
 
     // Check if any ISD codes were found
     if (!isdCodes || isdCodes.length === 0) {

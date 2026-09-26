@@ -564,12 +564,13 @@ export async function deleteCuriaAdvisorDetails(req, res) {
 
 export const getConfreresWithDetails = async (req, res) => {
   try {
-    const confreres = await prisma.confreres_dtl.findMany();
+    const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code);
+    const confreres = await prisma.confreres_dtl.findMany({ where: provinceScopeWhere(provinceCodes) });
 
     const responseResult = await Promise.all(
       confreres.map(async (confrere) => {
         // Fetch the member type name from quickcode_mst
-        const memberType = await prisma.quickcode_mst.findFirst({
+        const memberType = confrere.member_type_code ? await prisma.quickcode_mst.findFirst({
           where: {
             quick_code: confrere.member_type_code,
             quick_code_type: 'memtyp',
@@ -577,7 +578,7 @@ export const getConfreresWithDetails = async (req, res) => {
           select: {
             quickcode_name: true,
           },
-        });
+        }) : null;
 
         // Build the full name
         const fullName = `${confrere.first_name || ''} ${confrere.middle_name || ''} ${confrere.last_name || ''}`.trim();
@@ -605,9 +606,9 @@ export const getConfreresWithDetails = async (req, res) => {
           watsup1_no: confrere.watsup1_no ? confrere.watsup1_no.toString() : null,
           personal_mailid1: confrere.personal_mailid1,
           office1_isd: confrere.office1_isd || '',
-          office1_contact_no: confrere.office1_contact_no ? BigInt(confrere.office1_contact_no) : null,
+          office1_contact_no: confrere.office1_contact_no ? confrere.office1_contact_no.toString() : null,
           office2_isd: confrere.office2_isd || '',
-          office2_contact_no: confrere.office2_contact_no ? BigInt(confrere.office2_contact_no) : null,
+          office2_contact_no: confrere.office2_contact_no ? confrere.office2_contact_no.toString() : null,
           office_mailid1: confrere.office_mailid1,
           language_code: confrere.language_code,
           concurrency_val: confrere.concurrency_val,
@@ -622,7 +623,7 @@ export const getConfreresWithDetails = async (req, res) => {
     res.status(200).json(responseResult);
   } catch (error) {
     console.error('Error fetching confreres with details:', error);
-    res.status(500).json({ error: 'An error occurred while fetching confreres with details' });
+    return sendScopeError(res, error, 'An error occurred while fetching confreres with details');
   }
 };
 

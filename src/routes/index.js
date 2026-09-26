@@ -1,4 +1,5 @@
 import express from 'express';
+import { authenticate } from '../middlewares/authenticate.js';
 import { authRouter } from './auth.js';
 import { depaturerouter } from './quickcoderoutes/depatureroutes.js';
 import { metarouter } from './quickcoderoutes/metadata.js';
@@ -59,6 +60,14 @@ import { activityRouter } from './activities.js';
 const router = express.Router();
 
 router.use(authRouter);
+
+// Login and password recovery are public; all application data requires a session.
+const publicAuthPaths = new Set(['/loginsuperuser', '/forgotpassword', '/resetpassword']);
+router.use((req, res, next) => {
+  if (req.method === 'POST' && publicAuthPaths.has(req.path.toLowerCase())) return next();
+  return authenticate(req, res, next);
+});
+
 router.use(depaturerouter);
 router.use(metarouter);
 router.use(scholasticRouter);

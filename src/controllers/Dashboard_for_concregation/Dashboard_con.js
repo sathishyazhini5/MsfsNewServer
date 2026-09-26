@@ -1,3 +1,4 @@
+import { countScholasticVows } from '../../utils/scholasticVows.js';
 import { PrismaClient } from '@prisma/client';
 import { StatusCodes } from 'http-status-codes';
 import { HttpException } from '../../exceptions/HttpException.js';
@@ -561,26 +562,8 @@ export const getDivisionCountsforTokenConcretion = async (req, res) => {
           _count: { division_type_code: true },
       });
 
-      const promotionTypeQuickcodes = await prisma.quickcode_mst.findMany({
-          where: {
-              quick_code_type: "promto",
-              quickcode_name: { in: ["first profession", "final profession"], mode: "insensitive" },
-          },
-          select: { quick_code: true, quickcode_name: true },
-      });
-
-      const promotionTypeMap = Object.fromEntries(
-          promotionTypeQuickcodes.map((q) => [q.quick_code.toLowerCase(), q.quickcode_name.toLowerCase()])
-      );
-
-      const promotionCounts = await prisma.scholastics_admisn_promon_dtl.groupBy({
-          by: ["promotion_to_code"],
-          where: {
-              province_code: { in: provinceCodes },
-              promotion_to_code: { in: Object.keys(promotionTypeMap) },
-              end_date: null,
-          },
-          _count: { promotion_to_code: true },
+      const vowsCounts = await countScholasticVows(prisma, {
+          province_code: { in: provinceCodes },
       });
 
       const memberTypeQuickcodes = await prisma.quickcode_mst.findMany({
@@ -728,8 +711,8 @@ export const getDivisionCountsforTokenConcretion = async (req, res) => {
           concretion_name: concretion.concretion_name,
           role_name,
           provinces: provinces.map((p) => ({ province_code: p.province_code, province_name: p.province_name })),
-          firstProfessionCount: sumGroupedCount(promotionCounts, "promotion_to_code", "promotion_to_code", promotionTypeMap, "first profession"),
-          finalProfessionCount: sumGroupedCount(promotionCounts, "promotion_to_code", "promotion_to_code", promotionTypeMap, "final profession"),
+          firstProfessionCount: vowsCounts.firstProfessionCount,
+          finalProfessionCount: vowsCounts.finalProfessionCount,
           priest: sumGroupedCount(memberCounts, "member_type_code", "member_type_code", memberTypeMap, "priest"),
           "religious brother": sumGroupedCount(memberCounts, "member_type_code", "member_type_code", memberTypeMap, "religious brother"),
           novoices: sumGroupedCount(scholasticCounts, "scholastic_type_code", "scholastic_type_code", scholasticTypeMap, "novoices"),

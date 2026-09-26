@@ -35,13 +35,15 @@ app.use('/uploads', express.static('uploads'));
 app.use(morgan(LOG_FORMAT || 'combined', { stream }));
 
 
-// Updated CORS settings
-app.use(cors({
-  origin: ['http://localhost:3000'], // Specify allowed origins
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Add 'OPTIONS' for preflight requests
-  credentials: true, // Allow cookies from the client
-  allowedHeaders: ['Content-Type', 'Authorization'], // Ensure 'Authorization' is allowed
-}));
+// Production Nginx adds CORS headers, so Express must not add a second copy.
+if (NODE_ENV !== 'production' && process.env.CORS_MANAGED_BY_PROXY !== 'true') {
+  app.use(cors({
+    origin: ['http://localhost:3000'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }));
+}
 
 app.use(hpp());
 app.use(helmet());

@@ -1,3 +1,4 @@
+import { sharedQuickCodes } from '../../utils/sharedQuickCodes.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -71,71 +72,5 @@ export const createQuickCodesct = async (req, res) => {
     res.status(500).json({ error: 'Failed to create quick code' });
   }
 };
-export const getScolasticnames = async (req, res) => {
- 
-    const { quick_code_type } = req.query;
-  
-    try {
-
-      const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    return res.status(401).json({ error: "Access token is missing or invalid" });
-  }
-
-  const token = authHeader.split(" ")[1];
-  let decoded;
-
-  try {
-    decoded = jwt.verify(token, process.env.JWT_SECRET); // Verify the JWT token
-  } catch (error) {
-    if (error.name === "TokenExpiredError") {
-      return res.status(401).json({ error: "Token has expired" });
-    }
-    if (error.name === "JsonWebTokenError") {
-      return res.status(401).json({ error: "Invalid token" });
-    }
-    return res.status(500).json({ error: "Failed to verify token" });
-  }
-
-  // Extract province_name from the decoded token
-  const provinceName = decoded.province_name;
-
-  // Fetch province_code based on province_name
-  const province = await prisma.province_mst.findFirst({
-    where: { province_name: provinceName },
-    select: { province_code: true },
-  });
-
-  if (!province) {
-    return res.status(404).json({ error: "Province not found for the given name" });
-  }
-
-  const province_code = province.province_code;
-
-
-      if (quick_code_type && quick_code_type !== 'schtyp') {
-        return res.status(400).json({ error: 'quick_code_type must be schtyp' });
-      }
-  
-      const quickCodeNames = await prisma.quickcode_mst.findMany({
-        where: {
-          quick_code_type: 'schtyp',
-          province_code:province_code
-        },
-        select: {
-          quickcode_name: true,
-          quick_code: true,
-          quick_code_type: true, // Include quick_code_type in the selection
-        },
-        orderBy: {
-          quickcode_name: "asc", // Change this if another field defines the order
-        },
-      });
-  
-      res.json(quickCodeNames);
-    } catch (error) {
-      console.error('Error retrieving quick code names:', error);
-      res.status(500).json({ error: 'Failed to retrieve quick code names' });
-    }
-  };
+export const getScolasticnames = sharedQuickCodes(prisma, 'schtyp');
   

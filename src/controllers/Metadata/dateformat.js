@@ -173,15 +173,8 @@ export const updateDateFormatMetadata = async (req, res) => {
 export const getDateFormatMetadata = async (req, res) => {
   try {
     const dateFormatMetadata = await prisma.date_format_metadata.findMany({
-      select: {
-        id: true,
-        date_format_name: true,
-        date_format_code: true,
-        created_by: true,
-        created_date: true,
-        updated_by: true,
-        updated_date: true,
-      },
+      select: {        date_format_name: true,
+        date_format_code: true,      },
     });
 
     if (dateFormatMetadata.length === 0) {

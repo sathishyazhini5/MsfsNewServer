@@ -1,5 +1,5 @@
 import express from 'express';
-import { saveConfrere, getNationalities, getAllConfreres, getConfrereDetails, getConfreres ,updateConfrere, deleteConfrere, getConfrereByCode,getConfrerebyprovinceandmember, getConfreresView, saveConfrereByExcel ,getConfrereByConfrere_code, getConfrere, } from '../../controllers/Msfs/confreres.js';
+import { saveConfrere, getNationalities, getAllConfreres, getConfrereDetails, getConfreres ,updateConfrere, deleteConfrere, getConfrereByCode,getConfrerebyprovinceandmember, getConfreresView, saveConfrereByExcel ,getConfrereByConfrere_code, getConfrere, getConfrereExcelJobStatus, } from '../../controllers/Msfs/confreres.js';
 import upload from '../../middlewares/multer.js';
 import excelupload from '../../middlewares/excel-multer.js';
 import multer from 'multer';
@@ -35,6 +35,8 @@ router.put('/updateConfrere/:confrer_code', authenticate, excelUpload.single('im
 router.delete('/deleteConfrere/:confrer_code', deleteConfrere);
 
 router.post('/uploadExcel', authenticate, excelUpload.single('file'), saveConfrereByExcel)
+
+router.get('/uploadExcel/status/:jobId', authenticate, getConfrereExcelJobStatus)
 
 router.get('/getConfrereData/:confrer_code',getConfrere)
 

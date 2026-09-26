@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import xlsx from 'xlsx';
 import fs from 'fs';
+import path from 'path';
 import { uploadBufferToBlob } from '../../middlewares/azureBlob.js';
 
 import { JWT_SECRET } from "../../config/index.js";
@@ -14,6 +15,347 @@ import {
 } from '../../services/confrereCreationService.js';
 
 const maxLength = (str, len) => (str && str.length > len ? str.substring(0, len) : str);
+
+const CONFRERE_IMPORT_JOBS = new Map();
+
+const ensureImportErrorDir = () => {
+  const errorDir = path.resolve(process.cwd(), 'uploads', 'import-errors');
+  fs.mkdirSync(errorDir, { recursive: true });
+  return errorDir;
+};
+
+const createConfrereImportErrorFile = (failedRecords, jobId) => {
+  const errorRows = failedRecords.map((record) => ({
+    ...(record.details || record.row || {}),
+    Error: record.error || 'Unknown upload error',
+  }));
+
+  const worksheet = xlsx.utils.json_to_sheet(errorRows);
+  const workbook = xlsx.utils.book_new();
+  xlsx.utils.book_append_sheet(workbook, worksheet, 'Failed Records');
+
+  const fileName = `ConfreresUploadErrors_${jobId}.xlsx`;
+  const errorDir = ensureImportErrorDir();
+  const filePath = path.join(errorDir, fileName);
+  xlsx.writeFile(workbook, filePath);
+
+  return {
+    fileName,
+    filePath,
+    fileUrl: `/uploads/import-errors/${fileName}`,
+  };
+};
+
+const processConfrereExcelJob = async (jobId) => {
+  const job = CONFRERE_IMPORT_JOBS.get(jobId);
+  if (!job) return;
+
+  job.status = 'processing';
+  job.startedAt = new Date();
+  job.progress = 0;
+
+  try {
+    const { buffer, originalname, mimetype } = job.file;
+    const { decoded } = job;
+    const createdBy = decoded.role_name || decoded.username || 'Unknown';
+
+    const blobUrl = await uploadBufferToBlob(buffer, originalname, mimetype);
+    console.log(`Excel file uploaded to Azure for job ${jobId}: ${blobUrl}`);
+    job.azureBlobUrl = blobUrl;
+
+    const workbook = xlsx.read(buffer, { type: 'buffer' });
+    let rows = [];
+
+    for (const sheetName of workbook.SheetNames) {
+      const candidateRows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null });
+      if (candidateRows.length > 0) {
+        rows = candidateRows;
+        break;
+      }
+    }
+
+    if (!rows || rows.length === 0) {
+      throw new Error('No data rows found in the Excel file. Please check that the first row contains column headers and the sheet contains records.');
+    }
+
+    job.totalRows = rows.length;
+    const successRecords = [];
+    const failedRecords = [];
+
+    const parseDate = (dateStr) => {
+      if (!dateStr) return null;
+
+      if (typeof dateStr === 'number') {
+        const excelDate = new Date((dateStr - 25569) * 86400 * 1000);
+        return isNaN(excelDate.getTime()) ? null : excelDate;
+      }
+
+      const normalizedDate = String(dateStr).trim();
+      const datePattern = /^(\d{2})[-/](\d{2})[-/](\d{4})$/;
+      const match = normalizedDate.match(datePattern);
+
+      if (match) {
+        const [, day, month, year] = match;
+        const parsedDate = new Date(`${year}-${month}-${day}`);
+        return isNaN(parsedDate.getTime()) ? null : parsedDate;
+      }
+
+      const parsedDate = new Date(normalizedDate);
+      return isNaN(parsedDate.getTime()) ? null : parsedDate;
+    };
+
+    const safeBigInt = (value) => {
+      if (value === null || value === undefined || String(value).trim() === '') return null;
+      try {
+        return BigInt(String(value).trim());
+      } catch {
+        return null;
+      }
+    };
+
+    const safeLookup = async (value, type) => {
+      if (value === null || value === undefined || String(value).trim() === '') return null;
+      try {
+        return await fetchCodeByNameOrCode(value, type);
+      } catch (error) {
+        console.warn(`Ignoring invalid ${type} value: ${value}`);
+        return null;
+      }
+    };
+
+    for (const [index, row] of rows.entries()) {
+      try {
+        const personal2Isd = row['Personal2 ISD'] ? String(row['Personal2 ISD']) : null;
+        const personal2 = safeBigInt(row['Personal2 Contact']);
+        const personal3Isd = row['Personal3 ISD'] ? String(row['Personal3 ISD']) : null;
+        const personal3 = safeBigInt(row['Personal3 Contact']);
+        const whatsapp2Isd = row['WhatsApp2 ISD'] ? String(row['WhatsApp2 ISD']) : null;
+        const whatsapp2 = safeBigInt(row['WhatsApp2']);
+        const whatsapp3Isd = row['WhatsApp3 ISD'] ? String(row['WhatsApp3 ISD']) : null;
+        const whatsapp3 = safeBigInt(row['WhatsApp3']);
+        const emergencyIsd = row['Emergency ISD'] ? String(row['Emergency ISD']) : null;
+        const emergencyContact = safeBigInt(row['Emergency Contact']);
+
+        const ordinationDate = parseDate(row['Ordination Date']);
+        const province = await resolveAuthorizedProvince({
+          prisma,
+          user: decoded,
+          requestedProvince: row['Province'] || job.file.requestedProvince || job.file.province_code || job.file.province,
+        });
+        const member_type_code = await safeLookup(row['Member Type'], 'memberType');
+        const blood_group_code = await safeLookup(row['Blood Group'], 'bloodGroup');
+        const nationality_code = await safeLookup(row['Nationality'], 'nationality');
+
+        const normalizedEmail = String(row['Email'] || '').trim().toLowerCase() || null;
+        if (normalizedEmail) {
+          const existingConfrere = await prisma.confreres_dtl.findFirst({
+            where: { personal_mailid1: { equals: normalizedEmail, mode: 'insensitive' } },
+          });
+          if (existingConfrere) {
+            console.warn(`Confrere with email ${normalizedEmail} already exists.`);
+            failedRecords.push({ row, error: 'Confrere with this email already exists' });
+            continue;
+          }
+        }
+
+        const data = {
+          member_type_code: maxLength(member_type_code, 10),
+          first_name: maxLength(row['First Name'] || '', 50),
+          middle_name: maxLength(row['Middle Name'] || '', 50) || null,
+          last_name: maxLength(row['Last Name'] || '', 50),
+          birth_date: parseDate(row['Date of Birth']),
+          baptism_date: parseDate(row['Baptism Date']),
+          confirmation_date: parseDate(row['Confirmation Date']),
+          first_profession_date: parseDate(row['First Profession Date']),
+          final_profession_date: parseDate(row['Final Profession Date']),
+          ordination_date: ordinationDate,
+          personal_mailid1: maxLength(normalizedEmail, 255),
+          personal1_isd: row['Personal1 ISD'] ? String(row['Personal1 ISD']) : null,
+          personal1_contact_no: safeBigInt(row['Personal1 Contact']),
+          personal2_isd: maxLength(personal2Isd || '', 5),
+          personal2_contact_no: personal2,
+          personal3_isd: maxLength(personal3Isd || '', 5),
+          personal3_contact_no: personal3,
+          watsup1_isd: row['WhatsApp1 ISD'] ? String(row['WhatsApp1 ISD']) : null,
+          watsup1_no: safeBigInt(row['WhatsApp1']),
+          watsup2_isd: maxLength(whatsapp2Isd || '', 5),
+          watsup2_no: whatsapp2,
+          watsup3_isd: maxLength(whatsapp3Isd || '', 5),
+          watsup3_no: whatsapp3,
+          emergency_isd: maxLength(emergencyIsd || '', 5),
+          emergency_contact_no: emergencyContact,
+          blood_group_code: blood_group_code ? maxLength(blood_group_code, 10) : null,
+          nationality_code: nationality_code ? maxLength(nationality_code, 10) : null,
+          language_code: maxLength(row['Language Code'] || '', 2),
+          concurrency_val: 1,
+          created_by: job.userId || createdBy,
+          created_date: new Date(),
+        };
+
+        const created = await createConfrereWithGeneratedCode({
+          prisma,
+          province,
+          ordinationDate,
+          data,
+          role: decoded.role_name,
+          source: 'EXCEL',
+        });
+
+        successRecords.push({ ...row, confrer_code: created.confrer_code });
+        job.processedRows = index + 1;
+        job.progress = Math.round(((index + 1) / rows.length) * 100);
+      } catch (error) {
+        console.error(`Error processing row: ${error.message}`, row);
+        failedRecords.push({ row, error: error.message });
+      }
+    }
+
+    job.savedCount = successRecords.length;
+    job.failedCount = failedRecords.length;
+    job.processedRows = rows.length;
+    job.progress = 100;
+
+    if (failedRecords.length > 0) {
+      try {
+        const errorFile = createConfrereImportErrorFile(failedRecords, jobId);
+        job.errorFileUrl = errorFile.fileUrl;
+        job.errorFileName = errorFile.fileName;
+      } catch (error) {
+        console.error('Unable to write import error file:', error.message);
+      }
+    }
+
+    if (successRecords.length > 0 && failedRecords.length === 0) {
+      job.status = 'completed';
+      job.result = {
+        message: 'All confreres uploaded successfully.',
+        savedRecords: successRecords,
+      };
+    } else if (successRecords.length > 0 && failedRecords.length > 0) {
+      job.status = 'completed_with_errors';
+      job.result = {
+        message: 'Some confreres uploaded successfully. Some failed.',
+        savedRecords: successRecords,
+        failedRecords: failedRecords.map(record => ({ details: record.row, error: record.error })),
+      };
+    } else {
+      job.status = 'failed';
+      job.result = {
+        message: 'All confreres failed to upload.',
+        failedRecords: failedRecords.map(record => ({ details: record.row, error: record.error })),
+      };
+    }
+
+    job.finishedAt = new Date();
+    return job;
+  } catch (error) {
+    console.error(`Confrere import job ${jobId} failed: ${error.message}`);
+    job.status = 'failed';
+    job.finishedAt = new Date();
+    job.errorMessage = error.message;
+    job.result = { message: error.message || 'An error occurred while processing the file.' };
+    return job;
+  }
+};
+
+export const getConfrereExcelJobStatus = async (req, res) => {
+  const { jobId } = req.params;
+  const job = CONFRERE_IMPORT_JOBS.get(jobId);
+
+  if (!job) {
+    return res.status(404).json({ message: 'Import job not found.' });
+  }
+
+  return res.status(200).json({
+    jobId: job.jobId,
+    status: job.status,
+    progress: job.progress || 0,
+    totalRows: job.totalRows || 0,
+    processedRows: job.processedRows || 0,
+    savedCount: job.savedCount || 0,
+    failedCount: job.failedCount || 0,
+    message: job.result?.message || job.message || 'Import is in progress.',
+    errorFileUrl: job.errorFileUrl || null,
+    errorFileName: job.errorFileName || null,
+    startedAt: job.startedAt,
+    finishedAt: job.finishedAt || null,
+    result: job.result || null,
+  });
+};
+
+export const saveConfrereByExcel = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded.' });
+    }
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Access token is missing or invalid' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({ error: 'Token has expired' });
+      }
+      if (error.name === 'JsonWebTokenError') {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+      return res.status(500).json({ error: 'Failed to verify token' });
+    }
+
+    const jobId = `confrere-import-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const job = {
+      jobId,
+      status: 'queued',
+      progress: 0,
+      totalRows: 0,
+      processedRows: 0,
+      savedCount: 0,
+      failedCount: 0,
+      startedAt: null,
+      finishedAt: null,
+      result: null,
+      userId: decoded.user_id || decoded.username || decoded.role_name || 'Unknown',
+      message: 'Import queued for processing.',
+      file: {
+        buffer: req.file.buffer,
+        originalname: req.file.originalname,
+        mimetype: req.file.mimetype,
+        requestedProvince: req.body.province_code || req.body.province || req.body.provinceName,
+      },
+      decoded,
+    };
+
+    CONFRERE_IMPORT_JOBS.set(jobId, job);
+
+    setImmediate(async () => {
+      try {
+        await processConfrereExcelJob(jobId);
+      } catch (error) {
+        const activeJob = CONFRERE_IMPORT_JOBS.get(jobId);
+        if (activeJob) {
+          activeJob.status = 'failed';
+          activeJob.finishedAt = new Date();
+          activeJob.result = { message: error.message || 'Background import failed.' };
+        }
+      }
+    });
+
+    return res.status(202).json({
+      message: 'Confrere upload accepted and is running in the background.',
+      jobId,
+      status: 'queued',
+    });
+  } catch (error) {
+    console.error('Error queueing confreres upload:', error.message);
+    res.status(500).json({ error: 'An error occurred while scheduling the file upload.' });
+  }
+};
 
 async function fetchCodeByNameOrCode(nameOrCode, type) {
   const normalizedNameOrCode = String(nameOrCode || '').trim();
@@ -703,30 +1045,15 @@ export const updateConfrere = async (req, res) => {
     } = req.body;
 
 
-    const requiredFields = [
-      { field: "memberType", message: "Member type is required" },
-      { field: "firstName", message: "First Name is required" },
-      { field: "lastName", message: "Last Name is required" },
-      { field: "dob", message: "Birth date is required" },
-      { field: "firstProfessionDate", message: "First Profession date is required" },
-      { field: "finalProfessionDate", message: "Final Profession date is required" },
-      { field: "ordinationDate", message: "Ordination date is required" },
-      { field: "personal1", message: "Personal Contact1 is required" },
-      { field: "personal1Isd", message: "Personal isd 1 is required" },
-      { field: "email", message: "Email is required" },
-      { field: "nationality", message: "Nationality is required" },
-    ];
+    const optionalDate = (value) => {
+      if (value === undefined) return undefined;
+      if (!value) return null;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) throw Object.assign(new Error('Invalid date value'), { status: 400 });
+      return date;
+    };
 
-    const missingFields = requiredFields
-      .filter(({ field }) => !req.body[field] || req.body[field].trim() === "")
-      .map(({ message }) => message);
-
-    if (missingFields.length > 0) {
-      return res.status(400).json({ error: `Missing fields: ${missingFields.join(", ")}` });
-    }
-
-
-    const existingEmail = await prisma.confreres_dtl.findFirst({
+    const existingEmail = email ? await prisma.confreres_dtl.findFirst({
       where: {
         personal_mailid1: {
           equals: email,
@@ -734,7 +1061,7 @@ export const updateConfrere = async (req, res) => {
         },
         confrer_code: { not: confrer_code }, // Exclude the current confrere
       },
-    });
+    }) : null;
 
     if (existingEmail) {
       return res.status(400).json({ error: "The email is already in use." });
@@ -772,18 +1099,18 @@ export const updateConfrere = async (req, res) => {
         },
       },
       data: {
-        member_type_code: memberType,
-        blood_group_code: bloodGroup,
-        nationality_code: nationality,
+        member_type_code: memberType === undefined ? undefined : memberType || null,
+        blood_group_code: bloodGroup === undefined ? undefined : bloodGroup || null,
+        nationality_code: nationality === undefined ? undefined : nationality || null,
         first_name: firstName,
         middle_name: middleName,
         last_name: lastName,
-        birth_date: new Date(dob),
-        baptism_date: baptismDate ? new Date(baptismDate) : null,
-        confirmation_date: confirmationDate ? new Date(confirmationDate) : null,
-        first_profession_date: new Date(firstProfessionDate),
-        final_profession_date: new Date(finalProfessionDate),
-        ordination_date: ordinationDate ? new Date(ordinationDate) : null,
+        birth_date: optionalDate(dob),
+        baptism_date: optionalDate(baptismDate),
+        confirmation_date: optionalDate(confirmationDate),
+        first_profession_date: optionalDate(firstProfessionDate),
+        final_profession_date: optionalDate(finalProfessionDate),
+        ordination_date: optionalDate(ordinationDate),
         personal1_isd: personal1Isd,
         personal1_contact_no: personal1 ? BigInt(personal1) : null,
           personal2_isd: personal2Isd,                     // ✅ NEW
@@ -967,7 +1294,7 @@ export const getConfrereByCode = async (req, res) => {
     }
 
     // Fetch related member type, blood group, and nationality names
-    const memberType = await prisma.quickcode_mst.findFirst({
+    const memberType = confrere.member_type_code ? await prisma.quickcode_mst.findFirst({
       where: {
         quick_code: confrere.member_type_code,
         quick_code_type: 'memtyp',
@@ -975,18 +1302,18 @@ export const getConfrereByCode = async (req, res) => {
       select: {
         quickcode_name: true,
       },
-    });
+    }) : null;
 
-    const bloodGroup = await prisma.bloodgroup_metadata.findFirst({
+    const bloodGroup = confrere.blood_group_code ? await prisma.bloodgroup_metadata.findFirst({
       where: {
-        BloodGroup: confrere.blood_group_code,
+        bloodgroup: confrere.blood_group_code,
       },
       select: {
-        BloodGroup: true,
+        bloodgroup: true,
       },
-    });
+    }) : null;
 
-    const nationality = await prisma.quickcode_mst.findFirst({
+    const nationality = confrere.nationality_code ? await prisma.quickcode_mst.findFirst({
       where: {
         quick_code: confrere.nationality_code,
         quick_code_type: 'natlty',
@@ -994,14 +1321,14 @@ export const getConfrereByCode = async (req, res) => {
       select: {
         quickcode_name: true,
       },
-    });
+    }) : null;
 
     // Prepare the response object
     const responseResult = {
       confrer_code: confrere.confrer_code,
       province_code: confrere.province_code,
       member_type_name: memberType ? memberType.quickcode_name : 'N/A',
-      blood_group_name: bloodGroup ? bloodGroup.BloodGroup : 'N/A',
+      blood_group_name: bloodGroup ? bloodGroup.bloodgroup : 'N/A',
       nationality_name: nationality ? nationality.quickcode_name : 'N/A',
       first_name: confrere.first_name,
       middle_name: confrere.middle_name,
@@ -1326,246 +1653,6 @@ export const getConfreresView = async (req, res) => {
 // };
 
 
-export const saveConfrereByExcel = async (req, res) => {
-  try {
-    // Check if file is uploaded
-    if (!req.file) {
-      return res.status(400).json({ error: 'No file uploaded.' });
-    }
-
-    // Extract token and verify
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Access token is missing or invalid" });
-    }
-
-    const token = authHeader.split(" ")[1];
-    let decoded;
-    try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-      if (error.name === "TokenExpiredError") {
-        return res.status(401).json({ error: "Token has expired" });
-      }
-      if (error.name === "JsonWebTokenError") {
-        return res.status(401).json({ error: "Invalid token" });
-      }
-      return res.status(500).json({ error: "Failed to verify token" });
-    }
-
-    const createdBy = decoded.role_name || decoded.username || 'Unknown';
-
- // Upload to Azure Blob
- const { buffer, originalname, mimetype } = req.file;
- const blobUrl = await uploadBufferToBlob(buffer, originalname, mimetype);
- console.log(`Excel file uploaded to Azure: ${blobUrl}`);
-
-    // Read the Excel file
-
-    const workbook = xlsx.read(buffer, { type: 'buffer' });
-    let rows = [];
-    let selectedSheetName;
-    try {
-      for (const sheetName of workbook.SheetNames) {
-        const candidateRows = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null });
-        if (candidateRows.length > 0) {
-          rows = candidateRows;
-          selectedSheetName = sheetName;
-          break;
-        }
-      }
-    } catch (jsonError) {
-      console.error('Error converting Excel sheet to JSON:', jsonError);
-      return res.status(400).json({ error: 'Failed to convert Excel sheet to JSON format.' });
-    }
-
-    if (!rows || rows.length === 0) {
-      return res.status(400).json({
-        error: 'No data rows found in the Excel file. Please check that the first row contains column headers and the sheet contains records.',
-      });
-    }
-
-    console.log(`Processing ${rows.length} rows from Excel sheet: ${selectedSheetName}`);
-
-    const successRecords = [];
-    const failedRecords = [];
-
-    const parseDate = (dateStr) => {
-      if (!dateStr) return null;
-
-      // Check if the value is an Excel serial date (number)
-      if (typeof dateStr === 'number') {
-        const excelDate = new Date((dateStr - 25569) * 86400 * 1000);
-        return isNaN(excelDate.getTime()) ? null : excelDate; // Convert serial date to JS date
-      }
-
-      // Check for formats like DD-MM-YYYY or DD/MM/YYYY
-      const datePattern = /^(\d{2})[-/](\d{2})[-/](\d{4})$/;
-      const normalizedDate = String(dateStr).trim();
-      const match = normalizedDate.match(datePattern);
-
-      if (match) {
-        const [, day, month, year] = match;
-        const parsedDate = new Date(`${year}-${month}-${day}`); // Convert to YYYY-MM-DD for JS Date
-        return isNaN(parsedDate.getTime()) ? null : parsedDate;
-      }
-
-      // For any other format, try the default Date constructor
-      const parsedDate = new Date(normalizedDate);
-      if (isNaN(parsedDate.getTime())) {
-        return null;
-      }
-
-      return parsedDate;
-    };
-
-    const safeBigInt = (value) => {
-      if (value === null || value === undefined || String(value).trim() === '') return null;
-      try {
-        return BigInt(String(value).trim());
-      } catch {
-        return null;
-      }
-    };
-
-    const safeLookup = async (value, type) => {
-      if (value === null || value === undefined || String(value).trim() === '') return null;
-      try {
-        return await fetchCodeByNameOrCode(value, type);
-      } catch (error) {
-        console.warn(`Ignoring invalid ${type} value: ${value}`);
-        return null;
-      }
-    };
-
-    // Process each row
-    for (const row of rows) {
-      try {
-        // Extract and convert fields
-        const personal2Isd = row['Personal2 ISD'] ? String(row['Personal2 ISD']) : null;
-        const personal2 = safeBigInt(row['Personal2 Contact']);
-        const personal3Isd = row['Personal3 ISD'] ? String(row['Personal3 ISD']) : null;
-        const personal3 = safeBigInt(row['Personal3 Contact']);
-        const whatsapp2Isd = row['WhatsApp2 ISD'] ? String(row['WhatsApp2 ISD']) : null;
-        const whatsapp2 = safeBigInt(row['WhatsApp2']);
-        const whatsapp3Isd = row['WhatsApp3 ISD'] ? String(row['WhatsApp3 ISD']) : null;
-        const whatsapp3 = safeBigInt(row['WhatsApp3']);
-        const emergencyIsd = row['Emergency ISD'] ? String(row['Emergency ISD']) : null;
-        const emergencyContact = safeBigInt(row['Emergency Contact']);
-
-        const ordinationDate = parseDate(row['Ordination Date']);
-        const province = await resolveAuthorizedProvince({
-          prisma,
-          user: decoded,
-          requestedProvince: row['Province'] || req.body.province_code || req.body.province,
-        });
-        const member_type_code = await safeLookup(row['Member Type'], 'memberType');
-        const bloodGroup = row['Blood Group']; // Extract blood group from row
-        const blood_group_code = await safeLookup(bloodGroup, 'bloodGroup');
-        console.log("Blood Group Code:", blood_group_code);
-
-        const nationality_code = await safeLookup(row['Nationality'], 'nationality');
-
-        // Check for existing confrere
-        const normalizedEmail = String(row['Email'] || '').trim().toLowerCase() || null;
-        if (normalizedEmail) {
-          const existingConfrere = await prisma.confreres_dtl.findFirst({
-            where: { personal_mailid1: { equals: normalizedEmail, mode: 'insensitive' } },
-          });
-          if (existingConfrere) {
-            console.warn(`Confrere with email ${normalizedEmail} already exists.`);
-            failedRecords.push({ row, error: 'Confrere with this email already exists' });
-            continue; // Skip row
-          }
-        }
-
-        // Prepare data for Prisma create, ensuring correct data types
-        const data = {
-          member_type_code: maxLength(member_type_code, 10),
-          first_name: maxLength(row['First Name'] || '', 50),
-          middle_name: maxLength(row['Middle Name'] || '', 50) || null,
-          last_name: maxLength(row['Last Name'] || '', 50),
-          birth_date: parseDate(row['Date of Birth']),
-          baptism_date: parseDate(row['Baptism Date']),
-          confirmation_date: parseDate(row['Confirmation Date']),
-          first_profession_date: parseDate(row['First Profession Date']),
-          final_profession_date: parseDate(row['Final Profession Date']),
-          ordination_date: ordinationDate,
-          personal_mailid1: maxLength(normalizedEmail, 255),
-          personal1_isd: row['Personal1 ISD'] ? String(row['Personal1 ISD']) : null,
-          personal1_contact_no: safeBigInt(row['Personal1 Contact']),
-          personal2_isd: maxLength(personal2Isd || '', 5),
-          personal2_contact_no: personal2,
-          personal3_isd: maxLength(personal3Isd || '', 5),
-          personal3_contact_no: personal3,
-          watsup1_isd: row['WhatsApp1 ISD'] ? String(row['WhatsApp1 ISD']) : null,
-          watsup1_no: safeBigInt(row['WhatsApp1']),
-          watsup2_isd: maxLength(whatsapp2Isd || '', 5),
-          watsup2_no: whatsapp2,
-          watsup3_isd: maxLength(whatsapp3Isd || '', 5),
-          watsup3_no: whatsapp3,
-          emergency_isd: maxLength(emergencyIsd || '', 5),
-          emergency_contact_no: emergencyContact,
-          blood_group_code: blood_group_code ? maxLength(blood_group_code, 10) : null,
-          nationality_code: nationality_code ? maxLength(nationality_code, 10) : null,
-          language_code: maxLength(row['Language Code'] || '', 2),
-          concurrency_val: 1,
-          created_by: res.locals.user?.user_id || createdBy,
-          created_date: new Date(),
-        };
-
-        // Save confrere data to the database
-        const created = await createConfrereWithGeneratedCode({
-          prisma,
-          province,
-          ordinationDate,
-          data,
-          role: decoded.role_name,
-          source: 'EXCEL',
-        });
-        successRecords.push({ ...row, confrer_code: created.confrer_code });
-      } catch (err) {
-        console.error(`Error processing row: ${err.message}`, row);
-        failedRecords.push({ row, error: err.message });
-      }
-    }
-
-    if (successRecords.length > 0 && failedRecords.length === 0) {
-      // All records were saved successfully
-      return res.status(200).json({
-        message: 'All confreres uploaded successfully.',
-        savedRecords: successRecords,
-      });
-    } else if (successRecords.length > 0 && failedRecords.length > 0) {
-      // Some records were saved successfully, some failed
-      return res.status(207).json({
-        message: 'Some confreres uploaded successfully. Some failed.',
-        savedRecords: successRecords,
-        failedRecords: failedRecords.map(record => ({
-          details: record.row,
-          error: record.error,
-        })),
-      });
-    } else {
-      // All records failed
-      return res.status(400).json({
-        message: 'All confreres failed to upload.',
-        failedRecords: failedRecords.map(record => ({
-          details: record.row,
-          error: record.error,
-        })),
-      });
-    }
-  } catch (error) {
-    console.error('Error uploading confreres:', error.message);
-    res.status(500).json({ error: 'An error occurred while processing the file.' });
-  }
-};
-
-
-
-
-
 export const getConfrereByConfrere_code = async (req, res) => {
   try {
     // Trim any leading or trailing whitespace from confrer_code
@@ -1584,7 +1671,7 @@ export const getConfrereByConfrere_code = async (req, res) => {
     }
 
     // Find member type name from quickcode_mst
-    const quickcode = await prisma.quickcode_mst.findFirst({
+    const quickcode = confrere.member_type_code ? await prisma.quickcode_mst.findFirst({
       where: {
         quick_code_type: 'memtyp',
         quick_code: confrere.member_type_code,
@@ -1592,7 +1679,7 @@ export const getConfrereByConfrere_code = async (req, res) => {
       select: {
         quickcode_name: true,
       },
-    });
+    }) : null;
 
     // Combine the full name with member type name in the required format
     const memberTypeName = quickcode ? quickcode.quickcode_name : '';
@@ -1798,7 +1885,7 @@ export const getConfrere = async (req, res) => {
     }
 
     // Fetch related member type and nationality names
-    const memberType = await prisma.quickcode_mst.findFirst({
+    const memberType = confrere.member_type_code ? await prisma.quickcode_mst.findFirst({
       where: {
         quick_code: confrere.member_type_code,
         quick_code_type: 'memtyp',
@@ -1806,9 +1893,9 @@ export const getConfrere = async (req, res) => {
       select: {
         quickcode_name: true,
       },
-    });
+    }) : null;
 
-    const nationality = await prisma.quickcode_mst.findFirst({
+    const nationality = confrere.nationality_code ? await prisma.quickcode_mst.findFirst({
       where: {
         quick_code: confrere.nationality_code,
         quick_code_type: 'natlty',
@@ -1816,7 +1903,7 @@ export const getConfrere = async (req, res) => {
       select: {
         quickcode_name: true,
       },
-    });
+    }) : null;
 
     // Fetch blood group only if blood_group_code is not null
     let bloodGroup = null;
