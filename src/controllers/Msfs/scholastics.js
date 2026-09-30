@@ -1,3 +1,4 @@
+import { recordWhere } from '../../utils/recordAccess.js';
 import { PrismaClient } from '@prisma/client';
 import upload from '../../middlewares/multer.js';
 import xlsx from 'xlsx';
@@ -576,33 +577,33 @@ export const updateScholasticDetail = async (req, res) => {
             member_type_code: member_type_code || scholastic.member_type_code || null,
             personal1_isd: req.body.personal1_isd || scholastic.personal1_isd || null,
             personal1_contact_no: req.body.personal1_contact_no
-              ? BigInt(req.body.personal1_contact_no)
+              ? String(req.body.personal1_contact_no)
               : scholastic.personal1_contact_no
-                ? BigInt(scholastic.personal1_contact_no)
+                ? String(scholastic.personal1_contact_no)
                 : null,
             personal2_isd: req.body.personal2_isd || scholastic.personal2_isd || null,
             personal2_contact_no: req.body.personal2_contact_no
-              ? BigInt(req.body.personal2_contact_no)
+              ? String(req.body.personal2_contact_no)
               : scholastic.personal2_contact_no
-                ? BigInt(scholastic.personal2_contact_no)
+                ? String(scholastic.personal2_contact_no)
                 : null,
             personal3_isd: req.body.personal3_isd || scholastic.personal3_isd || null,
             personal3_contact_no: req.body.personal3_contact_no
-              ? BigInt(req.body.personal3_contact_no)
+              ? String(req.body.personal3_contact_no)
               : scholastic.personal3_contact_no
-                ? BigInt(scholastic.personal3_contact_no)
+                ? String(scholastic.personal3_contact_no)
                 : null,
             watsup1_isd: req.body.watsup1_isd || scholastic.watsup1_isd || null,
             watsup1_no: req.body.watsup1_no
-              ? BigInt(req.body.watsup1_no)
+              ? String(req.body.watsup1_no)
               : scholastic.watsup1_no
-                ? BigInt(scholastic.watsup1_no)
+                ? String(scholastic.watsup1_no)
                 : null,
             emergency_isd: req.body.emergency_isd || scholastic.emergency_isd || null,
             emergency_contact_no: req.body.emergency_contact_no
-              ? BigInt(req.body.emergency_contact_no)
+              ? String(req.body.emergency_contact_no)
               : scholastic.emergency_contact_no
-                ? BigInt(scholastic.emergency_contact_no)
+                ? String(scholastic.emergency_contact_no)
                 : null,
             image_file_name: image_file_name,   // ✅ Should be here
             image_file_path: image_file_path,   // ✅ Should be here
@@ -857,7 +858,7 @@ export const getScholasticDetails = async (req, res) => {
     if (scholastic_code) {
       // Get the scholastic detail by scholastic_code using findFirst
       const scholastic = await prisma.scholastics_dtl.findFirst({
-        where: { scholastic_code },
+        where: await recordWhere(req, prisma, { scholastic_code }),
       });
 
       if (!scholastic) {
@@ -887,7 +888,7 @@ export const getScholasticDetails = async (req, res) => {
       const nationality_name = nationalityCode ? nationalityCode.quickcode_name : 'N/A';
 
       const scholasticFeedback = await prisma.scholastics_feedback_dtl.findMany({
-        where: { scholastic_code },
+        where: { scholastic_code, province_code },
       });
 
       // if (!scholasticFeedback || scholasticFeedback.length === 0) {
@@ -943,7 +944,7 @@ export const getScholasticDetails = async (req, res) => {
       };
 
       let admissionPromoDetails = await prisma.scholastics_admisn_promon_dtl.findMany({
-        where: { scholastic_code },
+        where: { scholastic_code, province_code },
         orderBy: {
           start_date: 'desc', // Sort by start date to prioritize the most recent entry
         },
@@ -994,7 +995,7 @@ export const getScholasticDetails = async (req, res) => {
 
       // Fetch historical promotion details from scholastics_admisn_his_dtl (history table)
       const previousPromotionsHistory = await prisma.scholastics_admisn_his_dtl.findMany({
-        where: { scholastic_code },
+        where: { scholastic_code, province_code },
         orderBy: { scholastic_his_seq_no: 'desc' }, // Order by historical sequence number
       })
 

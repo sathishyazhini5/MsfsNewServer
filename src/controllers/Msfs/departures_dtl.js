@@ -236,7 +236,7 @@ export const saveDepartureDetails = async (req, res) => {
       const departureData = {
         departure_code: maxLength(newDepartureCode, 10),
         province_code: maxLength(province_code, 10),
-        confrer_scholastic_code: maxLength(confrer_scholastic_code || '', 10),
+        confrer_scholastic_code: confrer_scholastic_code,
         member_type_code: maxLength(memberTypeRecord.quick_code, 10),
         departure_type_code: maxLength(departureTypeRecord.quick_code, 10),
         departure_date: departure_date ? new Date(departure_date) : null,
@@ -271,7 +271,7 @@ export const saveDepartureDetails = async (req, res) => {
         const obituaryData = {
           obituary_code: maxLength(newObituaryCode, 10),
           province_code: maxLength(province_code, 10),
-          confrer_scholastic_code: maxLength(confrer_scholastic_code || '', 10),
+          confrer_scholastic_code: confrer_scholastic_code,
           member_type_code: maxLength(memberTypeRecord.quick_code, 10),
           //       departure_type_code: maxLength(departureTypeRecord.quick_code, 10),
           cause_of_death: maxLength(cause_of_death || '', 100),

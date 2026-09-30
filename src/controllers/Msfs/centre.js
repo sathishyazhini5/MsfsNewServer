@@ -1,3 +1,4 @@
+import { recordWhere } from '../../utils/recordAccess.js';
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 import xlsx from 'xlsx';
@@ -1363,9 +1364,10 @@ export const getcenterdetails = async (req, res, next) => {
   try {
     // Fetch the centre details using centre_code
     const centreData = await prisma.centre_dtl.findMany({
-      where: { centre_code },
+      where: await recordWhere(req, prisma, { centre_code }),
     });
 
+    if (centreData.length > 1) return res.status(400).json({ message: 'Specify the complete centre record key.' });
     if (centreData.length === 0) {
       return res.status(404).json({ message: 'No data found for the provided centre_code' });
     }

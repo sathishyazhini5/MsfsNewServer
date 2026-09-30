@@ -5,7 +5,9 @@ const prisma = new PrismaClient();
 export const getMetaCodeNames = async (req, res) => {
   try {
     const metaCodeNames = await prisma.meta_data_mst.findMany({
+      where: { screen_code: 'qckcode' },
       select: {
+        meta_code: true,
         meta_code_name: true,
       },
     });

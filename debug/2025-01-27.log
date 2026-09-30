@@ -1,4 +1,0 @@
-2025-01-27 15:27:28 info: 🚀 Server is running on http://localhost:5000
-2025-01-27 15:27:33 info: ::1 - - [27/Jan/2025:09:57:33 +0000] "POST /api/saveAnnouncement HTTP/1.1" 500 85 "-" "PostmanRuntime/7.43.0"
-2025-01-27 15:27:53 info: ::1 - - [27/Jan/2025:09:57:53 +0000] "POST /api/saveAnnouncement HTTP/1.1" 500 85 "-" "PostmanRuntime/7.43.0"
-2025-01-27 15:28:01 info: ::1 - - [27/Jan/2025:09:58:01 +0000] "POST /api/saveAnnouncement HTTP/1.1" 500 85 "-" "PostmanRuntime/7.43.0"

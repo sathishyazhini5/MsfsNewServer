@@ -1,3 +1,5 @@
+import { resolveAuthorizedProvince } from '../../services/confrereCreationService.js';
+import { officeCategories, validateOfficeSelections } from '../../utils/officeTypes.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -60,16 +62,15 @@ export async function saveCuriaAdvisorDetails(req, res) {
       if (error.name === "JsonWebTokenError") {
         return res.status(401).json({ error: "Invalid token" });
       }
-      return res.status(500).json({ error: "Failed to verify token" });
+      return res.status(error.status || 500).json({ error: "Failed to verify token" });
     }
 
     const provinceNameFromToken = decoded.province_name;
     const createdBy = decoded.role_name || decoded.username || 'Unknown';
-    if (!provinceNameFromToken) {
-      return res.status(400).json({ error: "Province information is missing in token" });
-    }
+
 
     const data = req.body;
+    await validateOfficeSelections(prisma, data);
 
     // Debug: Log input data
     console.log('Input Data:', data);
@@ -79,7 +80,6 @@ export async function saveCuriaAdvisorDetails(req, res) {
       { field: "division_type_code", name: "Division Type Code" },
       { field: "confrer_code", name: "Confrere Code" },
       { field: "designation_code", name: "Designation Code" },
-      { field: "pcic_off_code", name: "PCIC Office Code" },
       { field: "appointment_date", name: "Date of Appointment" },
       { field: "installation_date", name: "Date of Installation" },
       { field: "mandate_code", name: "Mandate Type" },
@@ -102,20 +102,7 @@ export async function saveCuriaAdvisorDetails(req, res) {
       });
     }
 
-    // Fetch the province_code using the province_name from the token
-    const province = await prisma.province_mst.findFirst({
-      where: {
-        province_name: provinceNameFromToken,
-      },
-      select: {
-        province_code: true,
-      },
-    });
-
-    if (!province || !province.province_code) {
-      return res.status(404).json({ error: `Province '${provinceNameFromToken}' not found.` });
-    }
-
+    const province = await resolveAuthorizedProvince({ prisma, user: decoded, requestedProvince: data.province_code });
     const province_code = province.province_code; // Use this in saveData
 
     // Validate confrer_code and check if it belongs to the province
@@ -147,6 +134,8 @@ if (existingAdvisor) {
     const division = await prisma.division_setup_mst.findFirst({
       where: {
         division_code: data.division_code,
+        division_type_code: data.division_type_code,
+        province_code,
       },
     });
     if (!division) {
@@ -166,18 +155,7 @@ if (existingAdvisor) {
       return res.status(400).json({ error: `Invalid division_type_code: ${data.division_type_code}.` });
     }
 
-    // Validate pcic_off_code from quickcode_mst table
-    const pcicOffCode = await prisma.quickcode_mst.findUnique({
-      where: {
-        quick_code_type_quick_code: {
-          quick_code_type: 'pcicof',
-          quick_code: data.pcic_off_code,
-        },
-      },
-    });
-    if (!pcicOffCode) {
-      return res.status(400).json({ error: `Invalid pcic_off_code: ${data.pcic_off_code}.` });
-    }
+
 
     // Validate mandate_code from quickcode_mst table
     const mandateCode = await prisma.quickcode_mst.findUnique({
@@ -221,7 +199,8 @@ if (existingAdvisor) {
       division_type_code: data.division_type_code,
       division_code: data.division_code,
       designation_code: data.designation_code,
-      pcic_off_code: data.pcic_off_code,
+      pcic_off_code: data.pcic_off_code === undefined ? undefined : (data.pcic_off_code || null),
+      gcic_off_code: data.gcic_off_code === undefined ? undefined : (data.gcic_off_code || null),
       curia_code,
       appointment_date: new Date(data.appointment_date),
       mandate_code: data.mandate_code,
@@ -256,7 +235,7 @@ if (existingAdvisor) {
     return res.status(201).json(jsonResponse);
   } catch (error) {
     console.error('Error saving curia advisor details:', error);
-    return res.status(500).json({ error: 'An error occurred while saving curia advisor details.' });
+    return res.status(error.status || 500).json({ error: error.status ? error.message : 'An error occurred while saving curia advisor details.' });
   } finally {
     await prisma.$disconnect();
   }
@@ -272,6 +251,7 @@ export async function getCuriaAdvisorDetails(req, res) {
   try {
     const { provinceCodes } = await resolveDataScope(req, prisma, req.query.province_code || null);
 
+    const categories = await officeCategories(prisma);
     // Fetch all curia_advisors_dtl records filtered by province_code
     const curiaAdvisors = await prisma.curia_advisors_dtl.findMany({
       where: provinceScopeWhere(provinceCodes),
@@ -324,11 +304,12 @@ export async function getCuriaAdvisorDetails(req, res) {
           select: { quickcode_name: true },
         });
 
-        const pcicOffice = await prisma.quickcode_mst.findFirst({
-          where: { quick_code: advisor.pcic_off_code, quick_code_type: 'pcicof' },
+        const pcicOffice = advisor.pcic_off_code ? await prisma.quickcode_mst.findFirst({
+          where: { quick_code: advisor.pcic_off_code, quick_code_type: categories.pcic },
           select: { quickcode_name: true },
-        });
+        }) : null;
 
+        const gcicOffice = advisor.gcic_off_code ? await prisma.quickcode_mst.findFirst({ where: { quick_code: advisor.gcic_off_code, quick_code_type: categories.gcic } }) : null;
         const mandate = await prisma.quickcode_mst.findFirst({
           where: { quick_code: advisor.mandate_code, quick_code_type: 'mandat' },
           select: { quickcode_name: true },
@@ -343,6 +324,7 @@ export async function getCuriaAdvisorDetails(req, res) {
           division_type_name: divisionType?.quickcode_name,
           designation_name: designation?.quickcode_name,
           pcic_off_name: pcicOffice?.quickcode_name,
+          gcic_off_name: gcicOffice?.quickcode_name || null,
           mandate_name: mandate?.quickcode_name,
         };
 
@@ -370,11 +352,7 @@ export async function getCuriaAdvisorByCode(req, res) {
     const { curia_code } = req.params;
 
     // Fetch the record with the given curia_code
-    const curiaAdvisor = await prisma.curia_advisors_dtl.findUnique({
-      where: {
-        curia_code: curia_code,  // Assuming curia_code is unique
-      },
-    });
+    const curiaAdvisor = req.curiaRecord;
 
     // If the record is not found, return a 404 error
     if (!curiaAdvisor) {
@@ -387,7 +365,7 @@ export async function getCuriaAdvisorByCode(req, res) {
     return res.status(200).json(jsonResponse);
   } catch (error) {
     console.error('Error fetching curia advisor details by curia_code:', error);
-    return res.status(500).json({ error: 'An error occurred while fetching curia advisor details.' });
+    return res.status(error.status || 500).json({ error: error.status ? error.message : 'An error occurred while fetching curia advisor details.' });
   } finally {
     await prisma.$disconnect();
   }
@@ -424,9 +402,7 @@ export async function deleteCuriaAdvisorDetails(req, res) {
     }
 
     // Find the record by curia_code
-    const existingRecord = await prisma.curia_advisors_dtl.findFirst({
-      where: { curia_code },
-    });
+    const existingRecord = req.curiaRecord;
 
     if (!existingRecord) {
       return res.status(404).json({ error: `Curia advisor with curia_code ${curia_code} not found.` });
@@ -476,13 +452,13 @@ export async function deleteCuriaAdvisorDetails(req, res) {
 
     // If all checks pass, delete the record from the database
     await prisma.curia_advisors_dtl.deleteMany({
-      where: { curia_code },
+      where: { curia_code: existingRecord.curia_code, confrer_code: existingRecord.confrer_code, province_code: existingRecord.province_code, division_type_code: existingRecord.division_type_code, division_code: existingRecord.division_code },
     });
 
     return res.status(200).json({ message: `Curia advisor with curia_code has been deleted successfully.` });
   } catch (error) {
     console.error('Error deleting curia advisor details:', error);
-    return res.status(500).json({ error: 'An error occurred while deleting curia advisor details.' });
+    return res.status(error.status || 500).json({ error: error.status ? error.message : 'An error occurred while deleting curia advisor details.' });
   } finally {
     await prisma.$disconnect();
   }
@@ -553,7 +529,7 @@ export async function deleteCuriaAdvisorDetails(req, res) {
 //     res.status(200).json(responseResult);
 //   } catch (error) {
 //     console.error('Error fetching confreres with details:', error);
-//     res.status(500).json({ error: 'An error occurred while fetching confreres with details' });
+//     res.status(500).json({ error: error.status ? error.message : 'An error occurred while fetching confreres with details' });
 //   } finally {
 //     // Disconnect from the database
 //     await prisma.$disconnect();
@@ -631,6 +607,7 @@ export const getConfreresWithDetails = async (req, res) => {
 export async function updateCuriaAdvisorDetails(req, res) {
   try {
     const data = req.body;
+    await validateOfficeSelections(prisma, data);
     const { curia_code } = req.params;
 
     // Debug: Log input data
@@ -672,7 +649,6 @@ export async function updateCuriaAdvisorDetails(req, res) {
       { field: "division_type_code", name: "Division Type Code" },
       { field: "confrer_code", name: "Confrere Code" },
       { field: "designation_code", name: "Designation Code" },
-      { field: "pcic_off_code", name: "PCIC Office Code" },
       { field: "appointment_date", name: "Date of Appointment" },
       { field: "installation_date", name: "Date of Installation" },
       { field: "mandate_code", name: "Mandate Type" },
@@ -696,24 +672,21 @@ export async function updateCuriaAdvisorDetails(req, res) {
     }
 
     // Find the record without division_type_code and division_code
-    const existingRecord = await prisma.curia_advisors_dtl.findFirst({
-      where: {
-        curia_code: curia_code.trim(),
-        confrer_code: data.confrer_code,
-        province_code:data.province_code
-      },
-    });
+    const existingRecord = req.curiaRecord;
 
     if (!existingRecord) {
       return res.status(404).json({ error: `No record found with curia_code ${curia_code}.` });
     }
 
+    const division = await prisma.division_setup_mst.findFirst({ where: { province_code: existingRecord.province_code, division_type_code: data.division_type_code, division_code: data.division_code } });
+    if (!division) return res.status(400).json({ error: 'Division does not belong to this Curia province.' });
     // Prepare the data for updating, allowing updates to division_type_code and division_code
     const updateData = {
       division_type_code: data.division_type_code, // These fields will be updated
       division_code: data.division_code, // These fields will be updated
       designation_code: data.designation_code,
-      pcic_off_code: data.pcic_off_code,
+      pcic_off_code: data.pcic_off_code === undefined ? undefined : (data.pcic_off_code || null),
+      gcic_off_code: data.gcic_off_code === undefined ? undefined : (data.gcic_off_code || null),
       appointment_date: new Date(data.appointment_date),
       mandate_code: data.mandate_code,
       installation_date: new Date(data.installation_date),
@@ -755,7 +728,7 @@ export async function updateCuriaAdvisorDetails(req, res) {
     return res.status(200).json(jsonResponse);
   } catch (error) {
     console.error('Error updating curia advisor details:', error);
-    return res.status(500).json({ error: 'An error occurred while updating curia advisor details.' });
+    return res.status(error.status || 500).json({ error: error.status ? error.message : 'An error occurred while updating curia advisor details.' });
   } finally {
     await prisma.$disconnect();
   }
@@ -776,11 +749,7 @@ export async function getCuriaAdvisor(req, res) {
     const { curia_code } = req.params;
 
     // Fetch the curia advisor details using the curia_code
-    const curiaAdvisor = await prisma.curia_advisors_dtl.findFirst({
-      where: {
-        curia_code: curia_code, // Filter by curia_code only
-      },
-    });
+    const curiaAdvisor = req.curiaRecord;
 
     // If the curia advisor is not found, return a 404 error
     if (!curiaAdvisor) {
@@ -797,35 +766,31 @@ export async function getCuriaAdvisor(req, res) {
       },
     });
 
-    if (!province) {
-      return res.status(404).json({ error: `Province with code ${curiaAdvisor.province_code} not found.` });
-    }
+
 
     const divisionTypeQuickcode = await prisma.quickcode_mst.findFirst({
       where: {
-        quick_code: curiaAdvisor.division_type_code,
+        quick_code: curiaAdvisor.division_type_code || '',
+        quick_code_type: 'divtyp',
       },
       select: {
         quickcode_name: true,
       },
     });
 
-    if (!divisionTypeQuickcode) {
-      return res.status(404).json({ error: `Quickcode with code ${curiaAdvisor.division_type_code} not found.` });
-    }
+
 
     const designationQuickcode = await prisma.quickcode_mst.findFirst({
       where: {
-        quick_code: curiaAdvisor.designation_code,
+        quick_code: curiaAdvisor.designation_code || '',
+        quick_code_type: 'destyp',
       },
       select: {
         quickcode_name: true,
       },
     });
 
-    if (!designationQuickcode) {
-      return res.status(404).json({ error: `Quickcode with designation_code ${curiaAdvisor.designation_code} not found.` });
-    }
+
 
     const division = await prisma.division_setup_mst.findFirst({
       where: {
@@ -838,9 +803,7 @@ export async function getCuriaAdvisor(req, res) {
       },
     });
 
-    if (!division) {
-      return res.status(404).json({ error: `Division with specified codes not found.` });
-    }
+
 
     const confrere = await prisma.confreres_dtl.findFirst({
       where: {
@@ -857,42 +820,43 @@ export async function getCuriaAdvisor(req, res) {
       ? `${confrere.first_name} ${confrere.middle_name ? confrere.middle_name + ' ' : ''}${confrere.last_name}` 
       : null;
 
-    const pcicQuickcode = await prisma.quickcode_mst.findFirst({
+    const categories = await officeCategories(prisma);
+    const gcicQuickcode = curiaAdvisor.gcic_off_code ? await prisma.quickcode_mst.findFirst({ where: { quick_code_type: categories.gcic, quick_code: curiaAdvisor.gcic_off_code } }) : null;
+    const pcicQuickcode = curiaAdvisor.pcic_off_code ? await prisma.quickcode_mst.findFirst({
       where: {
         quick_code: curiaAdvisor.pcic_off_code,
+        quick_code_type: categories.pcic,
       },
       select: {
         quickcode_name: true,
       },
-    });
+    }) : null;
 
-    if (!pcicQuickcode) {
-      return res.status(404).json({ error: `Quickcode with pcic_off_code ${curiaAdvisor.pcic_off_code} not found.` });
-    }
+
 
     const mandateQuickcode = await prisma.quickcode_mst.findFirst({
       where: {
-        quick_code: curiaAdvisor.mandate_code,
+        quick_code: curiaAdvisor.mandate_code || '',
+        quick_code_type: 'mandat',
       },
       select: {
         quickcode_name: true,
       },
     });
 
-    if (!mandateQuickcode) {
-      return res.status(404).json({ error: `Quickcode with mandate_code ${curiaAdvisor.mandate_code} not found.` });
-    }
+
 
     // Combine the curia advisor details with additional data
     const jsonResponse = {
       ...jsonifyBigInt(curiaAdvisor),
-      province_name: province.province_name,
-      division_type_name: divisionTypeQuickcode.quickcode_name,
-      designation_name: designationQuickcode.quickcode_name,
-      division_name: division.division_name,
+      province_name: province?.province_name || curiaAdvisor.province_code,
+      division_type_name: divisionTypeQuickcode?.quickcode_name || curiaAdvisor.division_type_code,
+      designation_name: designationQuickcode?.quickcode_name || curiaAdvisor.designation_code,
+      division_name: division?.division_name || curiaAdvisor.division_code,
       confrere_name: confrere_name,
-      pcic_name: pcicQuickcode.quickcode_name,
-      mandate_name: mandateQuickcode.quickcode_name,
+      pcic_name: pcicQuickcode?.quickcode_name || null,
+      gcic_name: gcicQuickcode?.quickcode_name || null,
+      mandate_name: mandateQuickcode?.quickcode_name || curiaAdvisor.mandate_code,
       personal1_contact_no: `${curiaAdvisor.personal1_isd} ${curiaAdvisor.personal1_contact_no || ''}`,
       watsup1_no : `${curiaAdvisor.watsup1_isd} ${curiaAdvisor.watsup1_no || ''}`,
       office1_contact_no: `${curiaAdvisor.office1_isd} ${curiaAdvisor.office1_contact_no || ''}`,
@@ -902,7 +866,7 @@ export async function getCuriaAdvisor(req, res) {
     return res.status(200).json(jsonResponse);
   } catch (error) {
     console.error('Error fetching curia advisor details by curia_code:', error);
-    return res.status(500).json({ error: 'An error occurred while fetching curia advisor details.' });
+    return res.status(error.status || 500).json({ error: error.status ? error.message : 'An error occurred while fetching curia advisor details.' });
   } finally {
     await prisma.$disconnect();
   }
@@ -928,7 +892,7 @@ export async function getAllCuriaAdvisorsForExport(req, res) {
       if (error.name === "JsonWebTokenError") {
         return res.status(401).json({ error: "Invalid token" });
       }
-      return res.status(500).json({ error: "Failed to verify token" });
+      return res.status(error.status || 500).json({ error: "Failed to verify token" });
     }
 
     const provinceName = decoded.province_name;

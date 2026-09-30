@@ -296,6 +296,7 @@ model headquarters_dtl {
 
 // 2. confreres_dtl
 model confreres_dtl {
+  import_key            String?   @unique @db.VarChar(64)
   confrer_code          String    @db.VarChar(15) // PK
   province_code         String    @db.VarChar(10) // PK
   member_type_code      String?   @db.VarChar(10)
@@ -311,19 +312,19 @@ model confreres_dtl {
   final_profession_date DateTime?
   ordination_date       DateTime?
   personal1_isd         String?   @db.VarChar(5)
-  personal1_contact_no  BigInt?
+  personal1_contact_no  String? @db.VarChar(20)
   personal2_isd         String?   @db.VarChar(5)
-  personal2_contact_no  BigInt?
+  personal2_contact_no  String? @db.VarChar(20)
   personal3_isd         String?   @db.VarChar(5)
-  personal3_contact_no  BigInt?
+  personal3_contact_no  String? @db.VarChar(20)
   watsup1_isd           String?   @db.VarChar(5)
-  watsup1_no            BigInt?
+  watsup1_no            String? @db.VarChar(20)
   watsup2_isd           String?   @db.VarChar(5)
-  watsup2_no            BigInt?
+  watsup2_no            String? @db.VarChar(20)
   watsup3_isd           String?   @db.VarChar(5)
-  watsup3_no            BigInt?
+  watsup3_no            String? @db.VarChar(20)
   emergency_isd         String?   @db.VarChar(5)
-  emergency_contact_no  BigInt?
+  emergency_contact_no  String? @db.VarChar(20)
   personal_mailid1      String?   @db.VarChar(255)
   blood_group_code      String?   @db.VarChar(10)
   nationality_code      String?   @db.VarChar(10)
@@ -451,6 +452,7 @@ model curia_advisors_dtl {
   division_code      String    @db.VarChar(10) // PK
   designation_code   String?   @db.VarChar(10)
   pcic_off_code      String?   @db.VarChar(10)
+  gcic_off_code      String?   @db.VarChar(10)
   appointment_date   DateTime
   mandate_code       String?   @db.VarChar(10)
   installation_date  DateTime

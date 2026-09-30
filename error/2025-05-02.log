@@ -1,3 +1,0 @@
-2025-05-02 14:47:45 error: Error in getAppointmentTransfersByConfrerCode: Error: No appointment transfers found for this confrer code
-    at getAppointmentTransfersByConfrerCode (file:///D:/deploy/E_Status/Backend/src/controllers/Msfs/admissionandtransfer.js:895:19)
-2025-05-02 14:47:45 error: Express Error: No appointment transfers found for this confrer code

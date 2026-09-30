@@ -1,3 +1,4 @@
+import { validateConfrerePayload, phoneFields, normalizeTelephone } from '../utils/confrereImport.js';
 import { Prisma } from '@prisma/client';
 
 const MAX_SEQUENCE = 999;
@@ -62,6 +63,12 @@ export const createConfrereWithGeneratedCode = async ({
   role,
   source,
 }) => {
+  data = { ...data };
+  for (const [, , isd, number] of phoneFields) {
+    const phone = normalizeTelephone(data[isd], data[number], number);
+    data[isd] = phone.isd; data[number] = phone.number;
+  }
+  validateConfrerePayload(data);
   const provinceCode = province?.province_code;
   if (!provinceCode) throw new ConfrereCreationError('Province is required.');
   const shortName = normalizeProvinceShortName(province.short_name);
@@ -70,6 +77,14 @@ export const createConfrereWithGeneratedCode = async ({
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt += 1) {
     try {
       return await prisma.$transaction(async (tx) => {
+        if (data.import_key) {
+          const existing = await tx.confreres_dtl.findUnique({ where: { import_key: data.import_key } });
+          if (existing) return existing;
+          // Also recognize exact rows imported before fingerprints were introduced.
+          const identity = Object.fromEntries(Object.entries(data).filter(([key]) => !['import_key', 'created_by', 'created_date', 'concurrency_val'].includes(key)));
+          const legacy = await tx.confreres_dtl.findFirst({ where: { ...identity, province_code: provinceCode } });
+          if (legacy) return legacy;
+        }
         let sequence;
         let confrerCode;
 

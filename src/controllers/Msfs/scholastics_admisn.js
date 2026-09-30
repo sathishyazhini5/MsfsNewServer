@@ -1,3 +1,4 @@
+import { academicYear } from '../../utils/academicYear.js';
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 import jwt from "jsonwebtoken";
@@ -228,13 +229,13 @@ import { JWT_SECRET } from "../../config/index.js";
 //             select: { academic_year: true },
 //         });
 
-//         if (!provinceCountryMap || !provinceCountryMap.academic_year) {
+//         if (req.body.academic_year === undefined && (!provinceCountryMap || !provinceCountryMap.academic_year)) {
 //             return res
 //                 .status(404)
 //                 .json({ error: `Academic year not found for province code ${province_code}` });
 //         }
 
-//         const academic_year = provinceCountryMap.academic_year;
+//         const academic_year = academicYear(req.body.academic_year === undefined ? provinceCountryMap?.academic_year : req.body.academic_year);
 
 //         const lastSeq = await prisma.scholastics_admisn_promon_dtl.findFirst({
 //             where: { scholastic_code },
@@ -297,7 +298,7 @@ import { JWT_SECRET } from "../../config/index.js";
 //         return res.status(201).json({ message: 'Data saved successfully', data: result });
 //     } catch (error) {
 //         console.error('Error saving data:', error.message);
-//         return res.status(500).json({ error: 'Internal Server Error' });
+//         return res.status(error.status || 500).json({ error: error.status ? error.message : 'Internal Server Error' });
 //     }
 // };
 
@@ -503,13 +504,13 @@ export const saveScholasticAdmisnPromonDetails = async (req, res) => {
             select: { academic_year: true },
         });
 
-        if (!provinceCountryMap || !provinceCountryMap.academic_year) {
+        if (req.body.academic_year === undefined && (!provinceCountryMap || !provinceCountryMap.academic_year)) {
             return res
                 .status(404)
                 .json({ error: `Academic year not found for province code ${province_code}` });
         }
 
-        const academic_year = provinceCountryMap.academic_year;
+        const academic_year = academicYear(req.body.academic_year === undefined ? provinceCountryMap?.academic_year : req.body.academic_year);
 
         const lastSeq = await prisma.scholastics_admisn_promon_dtl.findFirst({
             where: { scholastic_code },
@@ -639,7 +640,7 @@ export const saveScholasticAdmisnPromonDetails = async (req, res) => {
         return res.status(201).json({ message: 'Data saved successfully', data: result });
     } catch (error) {
         console.error('Error saving data:', error.message);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        return res.status(error.status || 500).json({ error: error.status ? error.message : 'Internal Server Error' });
     }
 };
 
@@ -745,7 +746,7 @@ export const saveScholasticAdmisnPromonDetails = async (req, res) => {
 //         });
 //     } catch (error) {
 //         console.error('Error fetching scholastics admission promotion details:', error);
-//         return res.status(500).json({ error: 'Internal Server Error' });
+//         return res.status(error.status || 500).json({ error: error.status ? error.message : 'Internal Server Error' });
 //     }
 // };
 
@@ -884,7 +885,7 @@ export const getScholasticsAdmisnPromonDetails = async (req, res) => {
 
     } catch (error) {
         console.error('Error fetching scholastics promotion details:', error);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        return res.status(error.status || 500).json({ error: error.status ? error.message : 'Internal Server Error' });
     } finally {
         await prisma.$disconnect();
     }
@@ -956,7 +957,7 @@ export const getScholasticsAdmisnPromonDetailsByCode = async (req, res) => {
         });
     } catch (error) {
         console.error(`Error fetching details for scholastics_admisn_code ${scholastics_admisn_code}:`, error);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        return res.status(error.status || 500).json({ error: error.status ? error.message : 'Internal Server Error' });
     }
 };
 
@@ -1245,6 +1246,7 @@ if (!resolvedCentrePlace && req.body.division_name && req.body.division_type_cod
 
 
         // Update the entry with the retrieved division_code
+        const requestedAcademicYear = req.body.academic_year === undefined ? undefined : academicYear(req.body.academic_year);
         const updatedScholasticsAdmisn = await prisma.scholastics_admisn_promon_dtl.update({
             where: {
                 scholastics_admisn_code_scholastic_code_centre_code: {
@@ -1255,6 +1257,7 @@ if (!resolvedCentrePlace && req.body.division_name && req.body.division_type_cod
             },
             data: {
                 province_code,
+                academic_year: requestedAcademicYear,
                 centre_code: resolvedCentreCode,
                 centre_place: resolvedCentrePlace,
                 division_type_code,
@@ -1277,7 +1280,7 @@ if (!resolvedCentrePlace && req.body.division_name && req.body.division_type_cod
         return res.status(200).json({ message: 'Data updated successfully', data: updatedScholasticsAdmisn });
     } catch (error) {
         console.error('Error updating data:', error);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        return res.status(error.status || 500).json({ error: error.status ? error.message : 'Internal Server Error' });
     }
 };
 
@@ -1325,7 +1328,7 @@ export const deleteScholasticsAdmisnPromonDetails = async (req, res) => {
         return res.status(200).json({ message: 'Data deleted successfully', data: result });
     } catch (error) {
         console.error('Error deleting data:', error.message);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        return res.status(error.status || 500).json({ error: error.status ? error.message : 'Internal Server Error' });
     }
 };
 
@@ -1414,7 +1417,7 @@ export const deleteScholasticsAdmisnPromonDetails = async (req, res) => {
 //         });
 //     } catch (error) {
 //         console.error('Error during deletion process:', error.message);
-//         return res.status(500).json({ error: 'Internal Server Error' });
+//         return res.status(error.status || 500).json({ error: error.status ? error.message : 'Internal Server Error' });
 //     }
 // };
 
@@ -1606,7 +1609,7 @@ export const getAdmissionPromonDetails = async (req, res) => {
         });
     } catch (error) {
         console.error(`Error fetching details for scholastics_admisn_code ${scholastics_admisn_code}:`, error);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        return res.status(error.status || 500).json({ error: error.status ? error.message : 'Internal Server Error' });
     }
 };
 
@@ -1672,7 +1675,7 @@ export const getScholastics = async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetching scholastics admission promotion details:', error);
-        return res.status(500).json({ error: 'Internal Server Error' });
+        return res.status(error.status || 500).json({ error: error.status ? error.message : 'Internal Server Error' });
     }
 };
 

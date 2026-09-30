@@ -1,3 +1,4 @@
+import { officeRecordWhere } from '../../utils/officeTypes.js';
 import { scholasticVowsWhere } from '../../utils/scholasticVows.js';
 import jwt from "jsonwebtoken";
 import { PrismaClient } from "@prisma/client";
@@ -7,7 +8,7 @@ const prisma = new PrismaClient();
 const CARD_TYPES = new Set([
   "REGION", "DELEGATION", "MISSION", "PRIEST", "RELIGIOUS_BROTHER",
   "SCHOLASTIC_PERPETUAL", "SCHOLASTIC_TEMPORARY", "NOVICE",
-  "MINOR_SEMINARIAN", "CENTER",
+  "MINOR_SEMINARIAN", "CENTER", "PCIC", "GCIC",
 ]);
 
 const quickCodesByName = async (type, names) => {
@@ -117,7 +118,8 @@ export const getDashboardDetails = async (req, res) => {
     const type = String(req.body?.type || "").toUpperCase();
     if (!CARD_TYPES.has(type)) return res.status(400).json({ message: "Invalid Dashboard detail type." });
 
-    const { provinceCodes, scopeLabel } = await getScope(req);
+    const { provinceCodes, scopeLabel: scopedLabel } = await getScope(req);
+    const scopeLabel = type === "GCIC" ? "ALL" : scopedLabel;
     const exportAll = req.body?.exportAll === true;
     const page = Math.max(Number.parseInt(req.body?.page, 10) || 1, 1);
     const pageSize = Math.min(Math.max(Number.parseInt(req.body?.pageSize, 10) || 50, 1), 100);
@@ -130,14 +132,25 @@ export const getDashboardDetails = async (req, res) => {
     let records;
     let columns;
 
-    if (["REGION", "DELEGATION", "MISSION"].includes(type)) {
+    if (["PCIC", "GCIC"].includes(type)) {
+      const baseWhere = await officeRecordWhere(prisma, type, provinceWhere(provinceCodes));
+      const people = await prisma.confreres_dtl.findMany({ where: { is_active: true }, select: { confrer_code: true, first_name: true, middle_name: true, last_name: true } });
+      const names = Object.fromEntries(people.map(row => [row.confrer_code, [row.first_name, row.middle_name, row.last_name].filter(Boolean).join(' ')]));
+      where = { AND: [baseWhere, ...(search ? [{ confrer_code: { in: people.filter(row => names[row.confrer_code].toLowerCase().includes(search.toLowerCase())).map(row => row.confrer_code) } }] : [])] };
+      [total, filteredTotal, records] = await Promise.all([
+        prisma.curia_advisors_dtl.count({ where: baseWhere }), prisma.curia_advisors_dtl.count({ where }),
+        prisma.curia_advisors_dtl.findMany({ where, select: { curia_code: true, confrer_code: true, province_code: true, division_type_code: true, division_code: true, pcic_off_code: true, gcic_off_code: true }, orderBy: [{ province_code: 'asc' }, { curia_code: 'asc' }, { confrer_code: 'asc' }, { division_type_code: 'asc' }, { division_code: 'asc' }], skip, take }),
+      ]);
+      records = (await decorateProvinces(records)).map(row => ({ ...row, name: names[row.confrer_code] }));
+      columns = [{ title: 'Name', dataIndex: 'name' }, { title: 'Province', dataIndex: 'province_name' }];
+    } else if (["REGION", "DELEGATION", "MISSION"].includes(type)) {
       const codes = await quickCodesByName("divtyp", [type]);
       const baseWhere = { ...provinceWhere(provinceCodes), division_type_code: { in: codes } };
       where = { ...baseWhere, ...(search ? { division_name: contains(search) } : {}) };
       [total, filteredTotal, records] = await Promise.all([
         prisma.division_setup_mst.count({ where: baseWhere }),
         prisma.division_setup_mst.count({ where }),
-        prisma.division_setup_mst.findMany({ where, select: { division_code: true, division_name: true, province_code: true }, orderBy: { division_name: "asc" }, skip, take }),
+        prisma.division_setup_mst.findMany({ where, select: { division_type_code: true, division_code: true, division_name: true, province_code: true }, orderBy: { division_name: "asc" }, skip, take }),
       ]);
       records = await decorateProvinces(records);
       columns = [
@@ -148,7 +161,7 @@ export const getDashboardDetails = async (req, res) => {
       const memberName = type === "PRIEST" ? "priest" : "religious brother";
       const codes = await quickCodesByName("memtyp", [memberName]);
       const baseWhere = { ...provinceWhere(provinceCodes), member_type_code: { in: codes }, is_active: true };
-      where = { ...baseWhere, ...(search ? { OR: [{ first_name: contains(search) }, { middle_name: contains(search) }, { last_name: contains(search) }, { personal_mailid1: contains(search) }, ...mobileEquals(search, "personal1_contact_no")] } : {}) };
+      where = { ...baseWhere, ...(search ? { OR: [{ first_name: contains(search) }, { middle_name: contains(search) }, { last_name: contains(search) }, { personal_mailid1: contains(search) }, { personal1_contact_no: contains(search) }] } : {}) };
       [total, filteredTotal, records] = await Promise.all([
         prisma.confreres_dtl.count({ where: baseWhere }),
         prisma.confreres_dtl.count({ where }),
@@ -238,7 +251,7 @@ export const getDashboardDetails = async (req, res) => {
       where = { ...baseWhere, ...(search ? { OR: [{ centre_name: contains(search) }, { centre_place: contains(search) }, { office_mailid1: contains(search) }, ...mobileEquals(search, "phone1_no")] } : {}) };
       [total, filteredTotal, records] = await Promise.all([
         prisma.centre_dtl.count({ where: baseWhere }), prisma.centre_dtl.count({ where }),
-        prisma.centre_dtl.findMany({ where, select: { centre_code: true, centre_name: true, centre_place: true, province_code: true, diocese_code: true, phone1_isd: true, phone1_no: true, office_mailid1: true }, orderBy: { centre_name: "asc" }, skip, take }),
+        prisma.centre_dtl.findMany({ where, select: { division_type_code: true, division_code: true, centre_code: true, centre_name: true, centre_place: true, province_code: true, diocese_code: true, phone1_isd: true, phone1_no: true, office_mailid1: true }, orderBy: { centre_name: "asc" }, skip, take }),
       ]);
       records = (await decorateProvinces(records)).map((row) => ({
         ...row,

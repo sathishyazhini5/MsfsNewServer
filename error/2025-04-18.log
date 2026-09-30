@@ -1,9 +1,0 @@
-2025-04-18 15:00:34 error: uncaughtException: excel is not defined
-ReferenceError: excel is not defined
-    at file:///E:/stephen%20desales%20technology/E_Status/Backend/src/routes/Msfs/Confreres.js:12:30
-    at ModuleJob.run (node:internal/modules/esm/module_job:218:25)
-    at async ModuleLoader.import (node:internal/modules/esm/loader:329:24)
-    at async loadESM (node:internal/process/esm_loader:34:7)
-    at async handleMainPromise (node:internal/modules/run_main:113:12)
-2025-04-18 15:46:19 error: Error during login: Incorrect password
-2025-04-18 15:46:19 error: Express Error: Incorrect password

@@ -355,7 +355,13 @@ export const getQuickCodeNames = async (req, res) => {
     }
 
     if (quick_code_type && !allowedQuickCodeTypes.includes(quick_code_type)) {
-      return res.status(400).json({ error: 'Invalid quick_code_type' });
+      const category = await prisma.meta_data_mst.findFirst({
+        where: { screen_code: 'qckcode', meta_code: quick_code_type },
+        select: { meta_code: true },
+      });
+      if (!category) {
+        return res.status(400).json({ error: 'Invalid quick_code_type' });
+      }
     }
 
     const quickCodeNames = await prisma.quickcode_mst.findMany({
@@ -709,7 +715,7 @@ export const updateQuickCode = async (req, res) => {
 //       (await prisma.departures_dtl.findFirst({ where: { member_type_code: quick_code } })) ? "departures_dtl " : null,
 //       (await prisma.announcements_dtl.findFirst({ where: { member_type_code: quick_code } })) ? "announcements_dtl " : null,
 //       (await prisma.obituary_dtl.findFirst({ where: { member_type_code: quick_code } })) ? "obituary_dtl" : null,
-//       (await prisma.curia_advisors_dtl.findFirst({ where: { pcic_off_code: quick_code } })) ? "curia_advisors_dtl" : null,
+//       (await prisma.curia_advisors_dtl.findFirst({ where: { OR: [{ pcic_off_code: quick_code }, { gcic_off_code: quick_code }] } })) ? "curia_advisors_dtl" : null,
 //       (await prisma.curia_advisors_dtl.findFirst({ where: { mandate_code: quick_code } })) ? "curia_advisors_dtl" : null,
 //       (await prisma.scholastics_admisn_promon_dtl.findFirst({ where: { formation_type_code: quick_code } })) ? "scholastics_admisn_promon_dtl" : null,
 //       (await prisma.scholastics_admisn_promon_dtl.findFirst({ where: { promotion_to_code: quick_code } })) ? "scholastics_admisn_promon_dtl" : null,
@@ -789,7 +795,7 @@ export const deleteQuickCode = async (req, res) => {
       prisma.departures_dtl.findFirst({ where: { member_type_code: quick_code } }),
       prisma.announcements_dtl.findFirst({ where: { member_type_code: quick_code } }),
       prisma.obituary_dtl.findFirst({ where: { member_type_code: quick_code } }),
-      prisma.curia_advisors_dtl.findFirst({ where: { pcic_off_code: quick_code } }),
+      prisma.curia_advisors_dtl.findFirst({ where: { OR: [{ pcic_off_code: quick_code }, { gcic_off_code: quick_code }] } }),
       prisma.curia_advisors_dtl.findFirst({ where: { mandate_code: quick_code } }),
       prisma.scholastics_admisn_promon_dtl.findFirst({ where: { formation_type_code: quick_code } }),
       prisma.scholastics_admisn_promon_dtl.findFirst({ where: { promotion_to_code: quick_code } }),

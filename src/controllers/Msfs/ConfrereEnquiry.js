@@ -57,9 +57,9 @@ export const filterConfreres = async (req, res, next) => {
         ...(filters.OR || []),
         ...contactNumbers.map((number) => ({
           OR: [
-            { personal1_contact_no: BigInt(number) },
-            { personal2_contact_no: BigInt(number) },
-            { personal3_contact_no: BigInt(number) },
+            { personal1_contact_no: String(number) },
+            { personal2_contact_no: String(number) },
+            { personal3_contact_no: String(number) },
           ],
         })),
       ];
@@ -70,9 +70,9 @@ export const filterConfreres = async (req, res, next) => {
         ...(filters.OR || []),
         ...whatsappNumbers.map((number) => ({
           OR: [
-            { watsup1_no: BigInt(number) },
-            { watsup2_no: BigInt(number) },
-            { watsup3_no: BigInt(number) },
+            { watsup1_no: String(number) },
+            { watsup2_no: String(number) },
+            { watsup3_no: String(number) },
           ],
         })),
       ];
@@ -1207,8 +1207,8 @@ export const getComprehensiveConfrereReport = async (req, res) => {
           { personal_mailid1: { contains: trimmedSearch, mode: "insensitive" } },
           ...(isNumeric
             ? [
-                { personal1_contact_no: BigInt(trimmedSearch) },
-                { watsup1_no: BigInt(trimmedSearch) },
+                { personal1_contact_no: String(trimmedSearch) },
+                { watsup1_no: String(trimmedSearch) },
               ]
             : []),
         ],

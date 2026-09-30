@@ -164,7 +164,7 @@ export const saveAppointmentTransfer = async (req, res, next) => {
 
         // Length validations
         const MAX_LENGTHS = {
-            confrer_code: 10,
+            confrer_code: 15,
             province_code: 10,
             division_type_code: 50,
             division_code: 10,
