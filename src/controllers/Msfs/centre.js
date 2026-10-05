@@ -1,4 +1,6 @@
+import { saveCentreExcelRow } from '../../utils/centreExcelUpload.js';
 import { recordWhere } from '../../utils/recordAccess.js';
+import { estatusRecordWhere } from '../../utils/estatusAccess.js';
 import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 import xlsx from 'xlsx';
@@ -1067,15 +1069,13 @@ export const saveCentreDetailsByExcel = async (req, res) => {
       return res.status(500).json({ error: "Failed to verify token" });
     }
 
-    const provinceNameFromToken = decoded.province_name;
-    const createdBy = decoded.role_name || decoded.username || 'Unknown';
-    if (!provinceNameFromToken) {
-      return res.status(400).json({ error: "Province information is missing in token" });
-    }
-
-    // Fetch province code from the database using the province name in the token
-    const { province_code } = await fetchCodeByName(provinceNameFromToken, 'province');
-    console.log (province_code)
+    const { provinceCodes } = await resolveDataScope(req, prisma);
+    const context = {
+      provinceCodes,
+      provinceCode: decoded.province_code,
+      provinceName: decoded.province_name,
+      createdBy: res.locals.user?.user_id || decoded.role_name || decoded.username || 'Unknown',
+    };
     // Read the file from the file system
     let workbook;
     try {
@@ -1113,258 +1113,41 @@ export const saveCentreDetailsByExcel = async (req, res) => {
     const successRecords = [];
     const failedRecords = [];
 
-    // Process each row
-    for (const row of rows) {
+    for (const [index, row] of rows.entries()) {
       try {
-        const division_type_code = row['Division Type'] ? await fetchCodeByName(row['Division Type'], 'divisionType') : null;
-        const division_code = row['Name of the Division'] ? await fetchCodeByName(row['Name of the Division'], 'division') : null;
-        const apostolate_code = row['Apostolate/Department'] ? await fetchCodeByName(row['Apostolate/Department'], 'apostolate') : null;
-        const centre_type_code = row['Centre Type'] ? await fetchCodeByName(row['Centre Type'], 'centreType') : null;
-        const community_house_code = row['Community House'] ? await fetchCodeByName(row['Community House'], 'communityHouse') : null;
-        const diocese_code = row['Name of the Diocese'] ? await fetchCodeByName(row['Name of the Diocese'], 'diocese') : null;
-        const country_code = row['Country'] ? await fetchCodeByName(row['Country'], 'country') : null;
-        const state_code = row['State'] ? await fetchCodeByName(row['State'], 'state') : null;
-        const province_code = row['Province'] 
-        ? await fetchCodeByName(row['Province'], 'province') 
-        : await fetchCodeByName(provinceNameFromToken, 'province');
-      console.log('Fetched Province Code:', province_code);
-
-
-        // Check for required fields
-        const requiredFields = {
-          'Division Type Code': division_type_code,
-          'Division Code': division_code,
-          'Apostolate Code': apostolate_code,
-          'Centre Type Code': centre_type_code,
-          'Community House Code': community_house_code,
-          'Diocese Code': diocese_code,
-          'Country Code': country_code,
-          'State Code': state_code,
-        };
-
-        const missingFields = Object.keys(requiredFields).filter(
-          (field) => !requiredFields[field]
-        );
-
-        if (missingFields.length > 0) {
-          console.error(`Missing required fields in row: ${missingFields.join(', ')}`, row);
-          failedRecords.push({ row, error: `Missing required fields: ${missingFields.join(', ')}` });
-          continue; // Skip row
-        }
-
-        // Check for existing center code
-        const existingCentre = await prisma.centre_dtl.findFirst({
-          where: { centre_name: row['Name of the Centre'],   province_code: province_code, },
-        });
-        console.log('Province code:', province_code);
-        if (existingCentre) {
-          console.error(`Centre with name ${row['Name of the Centre']} already exists.`);
-          failedRecords.push({ row, error: 'Centre with this name already exists' });
-          continue; // Skip row
-        }
-
-        // Generate new centre_code
-        const lastCentre = await prisma.centre_dtl.findFirst({ orderBy: { centre_code: 'desc' } });
-        let newCentreCode = 'CEN001';
-        if (lastCentre) {
-          const lastCodeNumber = parseInt(lastCentre.centre_code.replace('CEN', ''), 10);
-          newCentreCode = `CEN${(lastCodeNumber + 1).toString().padStart(3, '0')}`;
-        }
-
-        // Prepare data for Prisma create
-        const data = {
-          centre_code: maxLength(newCentreCode, 10),
-          province_code: province_code,
-          division_type_code,
-          division_code,
-          apostolate_code,
-          centre_type_code,
-          community_house_code,
-          centre_name: maxLength(row['Name of the Centre'], 50),
-          centre_place: maxLength(row['Place of the Centre'], 100),
-          address1: row['Address 1'] || '',
-          address2: row['Address 2'] || null,
-          address3: row['Address 3'] || null,
-          city_dist: maxLength(row['City/District'] || '', 100),
-          pin_zipcode: row['Pin / Zipcode'] ? parseInt(row['Pin / Zipcode'], 10) : null,
-          country_code,
-          state_code,
-          diocese_code,
-          phone1_isd: row['Personal1 ISD'] ? maxLength(String(row['Personal1 ISD']), 4) : null,
-          phone1_no: row['Personal1 Contact'] ? BigInt(row['Personal1 Contact']) : null,
-          phone2_isd: row['Personal2 ISD'] ? maxLength(String(row['Personal2 ISD']), 5) : null,
-          phone2_no: row['Personal2 Contact'] ? BigInt(row['Personal2 Contact']) : null,
-          phone3_isd: row['Personal3 ISD'] ? maxLength(String(row['Personal3 ISD']), 5) : null,
-          phone3_no: row['Personal3 Contact'] ? BigInt(row['Personal3 Contact']) : null,
-          watsup_isd: row['WhatsApp ISD'] ? maxLength(String(row['WhatsApp ISD']), 5) : null,
-          watsup_no: row['WhatsApp no'] ? BigInt(row['WhatsApp no']) : null,
-          office_mailid1: maxLength(row['Office MailId 1'], 255),
-          office_mailid2: row['Office MailId 2'] ? maxLength(row['Office MailId 2'], 255) : null,
-          website1: row['Official Website 1'] || null,
-          concurrency_val: row['Concurrency Value'] || 1,
-          created_by: res.locals.user?.user_id || createdBy,
-          created_date: new Date(),
-        };
-
-        // Save center details to the database
-        await prisma.centre_dtl.create({ data });
+        await saveCentreExcelRow(prisma, row, context);
         successRecords.push(row);
-      } catch (err) {
-        console.error(`Error processing row: ${err.message}`, row);
-        failedRecords.push({ row, error: err.message });
+      } catch (error) {
+        failedRecords.push({
+          details: row,
+          rowNumber: Number.isInteger(row.__rowNum__) ? row.__rowNum__ + 1 : index + 2,
+          error: error.message,
+        });
       }
     }
-
-    // Handle response after processing rows
-    if (successRecords.length > 0 && failedRecords.length === 0) {
-      return res.status(200).json({
-        message: 'All centre details uploaded successfully.',
-        savedRecords: successRecords,
-      });
-    } else if (successRecords.length > 0 && failedRecords.length > 0) {
-      return res.status(207).json({
-        message: 'Some centre details uploaded successfully. Some failed.',
-        savedRecords: successRecords,
-        failedRecords: failedRecords.map((record) => ({
-          details: record.row,
-          error: record.error,
-        })),
-      });
-    } else {
-      return res.status(400).json({
-        message: 'All centre details failed to upload.',
-        failedRecords: failedRecords.map((record) => ({
-          details: record.row,
-          error: record.error,
-        })),
-      });
-    }
+    const summary = { total: rows.length, saved: successRecords.length, failed: failedRecords.length };
+    return res.status(summary.failed ? (summary.saved ? 207 : 400) : 200).json({
+      message: summary.failed
+        ? (summary.saved ? 'Some centre details uploaded successfully. Some failed.' : 'All centre details failed to upload.')
+        : 'All centre details uploaded successfully.',
+      savedRecords: successRecords,
+      failedRecords,
+      summary,
+    });
   } catch (error) {
     console.error('Error uploading centre details:', error.message);
-    res.status(500).json({ error: 'An error occurred while processing the file.' });
+    return sendScopeError(res, error, 'An error occurred while processing the file.');
   }
 };
-
-// Helper function to map names to codes
-async function fetchCodeByName(name, type) {
-  name = name.trim();
-  let whereCondition = {};
-
-  // Prepare query condition based on type
-  switch (type) {
-    case 'province':
-      whereCondition = {
-        OR: [
-          { province_name: { equals: name, mode: 'insensitive' } },
-          { province_code: name }
-        ],
-      };
-      break;
-    case 'divisionType':
-      whereCondition = {
-        quickcode_name: { equals: name, mode: 'insensitive' },
-        quick_code_type: 'divtyp'
-      };
-      break;
-    case 'division':
-      whereCondition = {
-        division_name: { equals: name, mode: 'insensitive' },
-      };
-      break;
-    case 'apostolate':
-      whereCondition = {
-        apostolate_name: { equals: name, mode: 'insensitive' },
-      };
-      break;
-    case 'centreType':
-      whereCondition = {
-        quickcode_name: { equals: name, mode: 'insensitive' },
-        quick_code_type: 'ctrtyp'
-      };
-      break;
-    case 'communityHouse':
-      whereCondition = {
-        community_house_name: { equals: name.toLowerCase(), mode: 'insensitive' },
-      };
-      break;
-    case 'diocese':
-      whereCondition = {
-        quickcode_name: { equals: name, mode: 'insensitive' },
-        quick_code_type: 'diocse'
-      };
-      break;
-    case 'country':
-      whereCondition = {
-        country_name: { equals: name, mode: 'insensitive' },
-      };
-      break;
-    case 'state':
-      whereCondition = {
-        state_name: { equals: name, mode: 'insensitive' },
-      };
-      break;
-    default:
-      throw new Error(`Unknown type: ${type}`);
-  }
-
-  console.log(`Fetching ${type} code for: '${name}'`);
-
-  // Map type to Prisma model
-  let modelName;
-  switch (type) {
-    case 'province':
-      modelName = 'province_mst';
-      break;
-    case 'divisionType':
-    case 'diocese':
-      modelName = 'quickcode_mst';
-      break;
-    case 'division':
-      modelName = 'division_setup_mst';
-      break;
-    case 'apostolate':
-      modelName = 'apostolates_mst';
-      break;
-    case 'centreType':
-      modelName = 'quickcode_mst';
-      break;
-    case 'communityHouse':
-      modelName = 'community_house_dtl';
-      break;
-    case 'country':
-      modelName = 'country_mst';
-      break;
-    case 'state':
-      modelName = 'state_mst';
-      break;
-    default:
-      throw new Error(`Unknown type: ${type}`);
-  }
-
-  // Perform the database query
-  const result = await prisma[modelName].findFirst({
-    where: whereCondition,
-  });
-
-  if (!result) {
-    throw new Error(`${type} name '${name}' not found`);
-  }
-
-  return result.community_house_code || result.quick_code || result[`${type}_code`];
-}
-
-// Helper function to handle max length of string
-const maxLength = (str, len) => (str && str.length > len ? str.substring(0, len) : str);
-
-
 
 export const getcenterdetails = async (req, res, next) => {
   const { centre_code } = req.params;
 
   try {
+    const globalRead = !!estatusRecordWhere(req);
     // Fetch the centre details using centre_code
     const centreData = await prisma.centre_dtl.findMany({
-      where: await recordWhere(req, prisma, { centre_code }),
+      where: estatusRecordWhere(req) || await recordWhere(req, prisma, { centre_code }),
     });
 
     if (centreData.length > 1) return res.status(400).json({ message: 'Specify the complete centre record key.' });
@@ -1394,7 +1177,7 @@ export const getcenterdetails = async (req, res, next) => {
             select: { province_name: true },
           }),
           prisma.quickcode_mst.findFirst({
-            where: { quick_code: centre.division_type_code },
+            where: { quick_code: centre.division_type_code, ...(globalRead ? { quick_code_type: 'divtyp' } : {}) },
             select: { quickcode_name: true },
           }),
           prisma.division_setup_mst.findFirst({
@@ -1405,28 +1188,31 @@ export const getcenterdetails = async (req, res, next) => {
             },
             select: { division_name: true },
           }),
-          prisma.quickcode_mst.findFirst({
+          globalRead ? (centre.apostolate_code ? prisma.apostolates_mst.findFirst({
+            where: { apostolate_code: centre.apostolate_code, centre_type_code: centre.centre_type_code || undefined, province_code: centre.province_code },
+            select: { apostolate_name: true },
+          }).then((row) => row ? { quickcode_name: row.apostolate_name } : null) : null) : prisma.quickcode_mst.findFirst({
             where: { quick_code: centre.apostolate_code },
             select: { quickcode_name: true },
           }),
-          prisma.quickcode_mst.findFirst({
-            where: { quick_code: centre.centre_type_code },
+          globalRead && !centre.centre_type_code ? null : prisma.quickcode_mst.findFirst({
+            where: { quick_code: centre.centre_type_code, ...(globalRead ? { quick_code_type: 'ctrtyp' } : {}) },
             select: { quickcode_name: true },
           }),
           prisma.quickcode_mst.findFirst({
-            where: { quick_code: centre.diocese_code },
+            where: { quick_code: centre.diocese_code, ...(globalRead ? { quick_code_type: 'diocse' } : {}) },
             select: { quickcode_name: true },
           }),
-          prisma.community_house_dtl.findFirst({
-            where: { community_house_code: centre.community_house_code },
+          globalRead && !centre.community_house_code ? null : prisma.community_house_dtl.findFirst({
+            where: { community_house_code: centre.community_house_code, ...(globalRead ? { province_code: centre.province_code, division_type_code: centre.division_type_code, division_code: centre.division_code } : {}) },
             select: { community_house_name: true },
           }),
           prisma.country_mst.findFirst({
-            where: { country_code: centre.country_code },
+            where: { country_code: centre.country_code, ...(globalRead ? { province_code: centre.province_code } : {}) },
             select: { country_name: true },
           }),
           prisma.state_mst.findFirst({
-            where: { state_code: centre.state_code },
+            where: { state_code: centre.state_code, ...(globalRead ? { country_code: centre.country_code, province_code: centre.province_code } : {}) },
             select: { state_name: true },
           }),
         ]);

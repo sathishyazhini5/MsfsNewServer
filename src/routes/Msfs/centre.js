@@ -16,6 +16,7 @@ router.delete('/deletecentredetails/:centre_code', deleteCentreDetails);
 router.get('/getCentreNameByPlace/:centre_place', getCentresByPlace);
 router.post('/savecentrebyExcel', authenticate, excelupload.single('file'), saveCentreDetailsByExcel);
 router.get('/getcentredetails/:centre_code',getcenterdetails)
+router.get('/centre-view/:centre_code', getcenterdetails)
 router.get('/getAllCentreDetailsForExport',getAllCentreDetailsForExport)
 
 

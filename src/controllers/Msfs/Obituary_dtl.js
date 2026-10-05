@@ -8,6 +8,7 @@ import jwt from "jsonwebtoken";
 import { format } from 'date-fns';
 import { log } from 'console';
 import { provinceScopeWhere, resolveDataScope, sendScopeError } from '../../utils/dataScope.js';
+import { estatusRecordWhere } from '../../utils/estatusAccess.js';
 
 const prisma = new PrismaClient();
 
@@ -1270,9 +1271,11 @@ export const getObituary = async (req, res) => {
       return res.status(400).json({ error: 'Obituary code is required.' });
     }
 
-    // Fetch the obituary by obituary_code
+    const globalIdentity = estatusRecordWhere(req);
+    const { provinceCodes } = globalIdentity ? { provinceCodes: null } : await resolveDataScope(req, prisma, req.query.province_code || null);
+    // Global read access is established only by the dedicated eStatus GET route.
     const obituary = await prisma.obituary_dtl.findFirst({
-      where: { obituary_code },
+      where: globalIdentity || { obituary_code, ...provinceScopeWhere(provinceCodes) },
     });
 
     if (!obituary) {
@@ -1286,18 +1289,18 @@ export const getObituary = async (req, res) => {
     });
 
     // Fetch member type name
-    const memberType = await prisma.quickcode_mst.findFirst({
+    const memberType = globalIdentity && !obituary.member_type_code ? null : await prisma.quickcode_mst.findFirst({
       where: { quick_code_type: 'memtyp', quick_code: obituary.member_type_code },
       select: { quickcode_name: true },
     });
 
     // Fetch country details
-    const deathCountry = await prisma.countrymetadata.findFirst({
+    const deathCountry = globalIdentity && !obituary.death_country_code ? null : await prisma.countrymetadata.findFirst({
       where: { alpha_3code: obituary.death_country_code },
       select: { country_name: true },
     });
 
-    const originCountry = await prisma.country_mst.findFirst({
+    const originCountry = globalIdentity && !obituary.orgin_country_code ? null : await prisma.country_mst.findFirst({
       where: { country_code: obituary.orgin_country_code },
       select: { country_name: true },
     });
@@ -1360,7 +1363,7 @@ export const getObituary = async (req, res) => {
 
       // ✅ Prepare Confrere Details
       personDetails = {
-        name: `${confrere.first_name} ${confrere.middle_name || ""} ${confrere.last_name}`.trim(),
+        name: [confrere.first_name, confrere.middle_name, confrere.last_name].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim(),
         birth_date: confrere.birth_date?.toISOString().split("T")[0] || null,
         nationality: confrere.nationality_code,
         blood_group: confrere.blood_group_code || "N/A",
@@ -1377,13 +1380,13 @@ export const getObituary = async (req, res) => {
     } else {
       // ✅ If not a confrere, check if it's a Scholastic
       let scholastic = await prisma.scholastics_dtl.findFirst({
-        where: { scholastic_code: obituary.confrer_scholastic_code },
+        where: { scholastic_code: obituary.confrer_scholastic_code, ...(globalIdentity ? { province_code: obituary.province_code } : {}) },
       });
 
       if (scholastic) {
         // ✅ Fetch Academic Details (Admission Promotion Data)
         const academicPromotions = await prisma.scholastics_admisn_promon_dtl.findMany({
-          where: { scholastic_code: obituary.confrer_scholastic_code },
+          where: { scholastic_code: obituary.confrer_scholastic_code, ...(globalIdentity ? { province_code: obituary.province_code } : {}) },
           orderBy: { start_date: 'desc' },
         });
 
@@ -1418,7 +1421,7 @@ export const getObituary = async (req, res) => {
 
         // ✅ Prepare Scholastic Details
         personDetails = {
-          name: `${scholastic.first_name} ${scholastic.middle_name || ""} ${scholastic.last_name}`.trim(),
+          name: [scholastic.first_name, scholastic.middle_name, scholastic.last_name].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim(),
           birth_date: scholastic.birth_date?.toISOString().split("T")[0] || null,
           nationality: scholastic.nationality_code,
           blood_group: scholastic.blood_group_code || "N/A",
@@ -1452,6 +1455,7 @@ const result = {
   death_country_name: deathCountry?.country_name || null,
   origin_country_name: originCountry?.country_name || null,
   person_details: personDetails,
+  deceased_name: (personDetails?.name || obituary.disease_name || 'Name unavailable').replace(/\s+/g, ' ').trim(),
   current_designation: currentDesignationDetails,
   previous_designations: previousDesignationDetails,
   academic_details: academicDetails,
@@ -1462,7 +1466,7 @@ return res.status(200).json(convertBigIntToString(result));
 
   } catch (error) {
     console.error('Error fetching obituary:', error);
-    return res.status(500).json({ error: 'An error occurred while fetching the obituary.' });
+    return sendScopeError(res, error, 'An error occurred while fetching the obituary.');
   } finally {
     await prisma.$disconnect();
   }

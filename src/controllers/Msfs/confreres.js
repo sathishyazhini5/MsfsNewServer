@@ -1,4 +1,5 @@
 import { recordWhere } from '../../utils/recordAccess.js';
+import { estatusRecordWhere } from '../../utils/estatusAccess.js';
 import { mapConfrereImportRow, importFingerprint, normalizeConfrerePhones, retryableConfrereRow } from '../../utils/confrereImport.js';
 import { PrismaClient } from '@prisma/client';
 import xlsx from 'xlsx';
@@ -1794,7 +1795,7 @@ export const getConfrere = async (req, res) => {
 
     // Find the confrere using confrer_code
     const confrere = await prisma.confreres_dtl.findFirst({
-      where: await recordWhere(req, prisma, { confrer_code }),
+      where: estatusRecordWhere(req) || await recordWhere(req, prisma, { confrer_code }),
     });
 
     if (!confrere) {
@@ -1851,11 +1852,14 @@ export const getConfrere = async (req, res) => {
 
     // Fetch current designation (end_date = NULL)
     const currentDesignation = await prisma.appoint_transfer_dtl.findMany({
-      where: { confrer_code, designation_end_date: null },
+      where: { confrer_code, designation_end_date: null, is_active: true },
       select: {
         designation_code: true,
         designation_appn_date: true,
         centre_code: true,
+        province_code: true,
+        division_type_code: true,
+        division_code: true,
       },
     });
 
@@ -1898,7 +1902,7 @@ export const getConfrere = async (req, res) => {
         });
 
         const centreDetails = await prisma.centre_dtl.findFirst({
-          where: { centre_code: designation.centre_code },
+          where: { centre_code: designation.centre_code, province_code: designation.province_code, division_type_code: designation.division_type_code, division_code: designation.division_code },
           select: { centre_name: true, centre_place: true, address1: true, address2: true, address3: true },
         });
 
@@ -1928,7 +1932,7 @@ export const getConfrere = async (req, res) => {
         return {
           designation_name: designationName?.quickcode_name || 'N/A',
           start_date: designation.designation_appn_date?.toISOString().split('T')[0] || null,
-          centre_name: centreDetails?.centre_name || 'N/A',
+          centre_name: centreDetails?.centre_name || 'Not assigned',
           centre_place: centreDetails?.centre_place || 'N/A',
           centre_address: fullAddress,
           total_years_served: `${totalYearsServed} Year(s) ${totalMonthsServed} Month(s)`,
@@ -2067,6 +2071,7 @@ allPreviousDesignations.map(async (designation) => {
       image_file_path: confrere.image_file_path,
       feedbacks: feedbacks.length > 0 ? feedbacks : 'No feedback available', // Feedback details with designation name
       current_designation: currentDesignationDetails || 'No current designation',
+      current_centre_name: [...new Set(currentDesignationDetails.map((d) => d.centre_name).filter((name) => name !== 'Not assigned'))].join('; ') || 'Not assigned',
       previous_designations: previousDesignationDetails.length > 0 ? previousDesignationDetails : [],
 
 

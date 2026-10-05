@@ -57,6 +57,7 @@ import { activityRouter } from './activities.js';
 
 
 
+import { estatusRouter } from './estatus.js';
 const router = express.Router();
 
 router.use(authRouter);
@@ -118,6 +119,7 @@ router.use(confrerEnquiryRouter)
 router.use(superUserRouter)
 router.use(DashboardRouter)
 router.use(Rolenamerouter)
+router.use(estatusRouter)
 router.use(globalSearchRouter)
 router.use(notificationRouter)
 router.use(activityRouter)

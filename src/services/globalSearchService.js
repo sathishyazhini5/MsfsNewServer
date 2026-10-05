@@ -18,7 +18,6 @@ export const searchGlobally = async ({ prisma, query, provinceCodes, user }) => 
   const centreScope = scopeClause('ct', provinceCodes);
   const headquartersScope = scopeClause('h', provinceCodes);
   const communityScope = scopeClause('ch', provinceCodes);
-  const appointmentScope = scopeClause('ap', provinceCodes);
   const curiaScope = scopeClause('ca', provinceCodes);
   const admissionScope = scopeClause('sa', provinceCodes);
   const eventScope = scopeClause('e', provinceCodes);
@@ -184,20 +183,6 @@ export const searchGlobally = async ({ prisma, query, provinceCodes, user }) => 
         Prisma.sql`s."first_name"`, Prisma.sql`s."middle_name"`, Prisma.sql`s."last_name"`,
         Prisma.sql`ct."centre_name"`, Prisma.sql`sa."centre_place"`, Prisma.sql`ft."quickcode_name"`,
         Prisma.sql`st."quickcode_name"`, Prisma.sql`sa."academic_year"`, Prisma.sql`p."province_name"`
-      ], pattern)}
-
-      UNION ALL
-      SELECT 'appointments', 'APPOINTMENT', ap."confrer_code" || ':' || ap."confrer_seq_no"::text,
-        btrim(concat_ws(' ', c."first_name", c."middle_name", c."last_name")), p."province_name",
-        concat_ws(' · ', ct."centre_name", des."quickcode_name"), '/appointmentTransfer', '{}'::jsonb
-      FROM "appoint_transfer_dtl" ap
-      JOIN "confreres_dtl" c ON c."confrer_code" = ap."confrer_code"
-      JOIN "province_mst" p ON p."province_code" = ap."province_code"
-      LEFT JOIN "centre_dtl" ct ON ct."centre_code" = ap."centre_code" AND ct."province_code" = ap."province_code"
-      LEFT JOIN "quickcode_mst" des ON des."quick_code" = ap."designation_code"
-      WHERE ${appointmentScope} AND ${match([
-        Prisma.sql`c."first_name"`, Prisma.sql`c."middle_name"`, Prisma.sql`c."last_name"`,
-        Prisma.sql`ct."centre_name"`, Prisma.sql`des."quickcode_name"`, Prisma.sql`p."province_name"`
       ], pattern)}
 
       UNION ALL

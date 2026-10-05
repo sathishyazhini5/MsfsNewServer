@@ -38,7 +38,7 @@ app.use(morgan(LOG_FORMAT || 'combined', { stream }));
 // Production Nginx adds CORS headers, so Express must not add a second copy.
 if (NODE_ENV !== 'production' && process.env.CORS_MANAGED_BY_PROXY !== 'true') {
   app.use(cors({
-    origin: ['http://localhost:3000'],
+    origin: ['http://localhost:3000','http://localhost:3001'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
     allowedHeaders: ['Content-Type', 'Authorization'],
